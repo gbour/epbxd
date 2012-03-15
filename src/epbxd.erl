@@ -11,7 +11,9 @@ start(normal, Args) ->
 	logging:init(config:get(logfile)),
 	%%logging:loglevel(config:get("loglevel")),
 
-	?DEBUG("~p", [plop]),
+	%% NOTE: cannot debug until logging is initialized
+	?DEBUG("app:start",[]),
+	application:start(sasl),
 	epbxd_sup:start_link();
 
 
