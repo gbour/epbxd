@@ -1,16 +1,11 @@
 
 -define(DEBUG(Fmt, Args), 
-	_Fmt = lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]),
-	logging:log(debug, _Fmt, Args)).
+	logging:log(debug, lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]), Args)).
 -define(INFO(Fmt, Args), 
-	_Fmt = lists:concat([?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]),
-	logging:log(info, _Fmt, Args)).
+	logging:log(info, lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]), Args)).
 -define(NOTICE(Fmt, Args), 
-	_Fmt = lists:concat([?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]),
-	logging:log(notice, _Fmt, Args)).
+	logging:log(notice, lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]), Args)).
 -define(WARNING(Fmt, Args), 
-	_Fmt = lists:concat([?MODULE, ":", ?LINE ,"):: ", Fmt, "~n"]),
-	logging:log(warning, _Fmt, Args)).
+	logging:log(warning, lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]), Args)).
 -define(ERROR(Fmt, Args), 
-	_Fmt = lists:concat([?MODULE, ":", ?LINE ,"):: ", Fmt, "~n"]),
-	logging:log(error, _Fmt, Args)).
+	logging:log(error, lists:concat(["(", ?MODULE, ":", ?LINE, "):: ", Fmt, "~n"]), Args)).
