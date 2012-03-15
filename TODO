@@ -1,0 +1,8 @@
+
+SIP decoding:
+	. Header multivalues (comma separated)
+	. multiline header
+	. unittests
+	. header key case
+	. multiple headers (Via)
+	. headers short key form (f -> From)
