@@ -3,8 +3,12 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 -behaviour(gen_server).
 
--export([start_link/3, init/1, acceptor/2, processor/2, sipdecoder/2, code_change/3, terminate/2, handle_call/3, handle_info/2,
+-export([start_link/3, init/1, acceptor/2, processor/2, code_change/3, terminate/2, handle_call/3, handle_info/2,
 	handle_cast/2]).
+-ifdef(debug).
+	-export([sip_decoder/2,response/2, msgencode/1, msgencode/2]).
+-endif.
+
 
 -include("sips.hrl").
 -include("utils.hrl").
@@ -55,7 +59,8 @@ processor(Socket, {M, C}) ->
 	{Status, Message} = M:C(Socket, #message{}),
 
 	%%TODO: handle messages
-	?DEBUG("processor:end= ~p", [Status, Message]).
+	?DEBUG("processor:end= ~p", [Status, Message]),
+	handle(Message, Socket).
 
 %% decode SIP message
 sipdecoder(Socket, Message) ->
@@ -76,7 +81,7 @@ msgdecode(start, Message, [Token|Next]) ->
 		["SIP/"++Version, Status, Reason] ->
 			Message#message{type=response,version=Version,status=Status,reason=Reason};
 		[Method,URI,"SIP/"++Version] ->
-			Message#message{type=request,version=Version,method=Method,uri=URI};
+			Message#message{type=request,version=Version,method=list_to_atom(Method),uri=URI};
 
 		_Else ->
 			?ERROR("sips:msgdecode= invalid SIP message start-line= ~p", [_Else]),
@@ -90,9 +95,41 @@ msgdecode(header, Message, [""|Next]) ->
 
 msgdecode(header, Message, [Token|Next]) ->
 	[Key, Value] = re:split(Token, ": ", [{return,list},{parts,2}]),
-	M = Message#message{headers=dict:append(Key,Value,Message#message.headers)},
+	M = Message#message{headers=dict:append(utils:title(Key),Value,Message#message.headers)},
 	msgdecode(header, M, Next).
 
+
+%% encode message
+msgencode(Message) ->
+	msgencode(start, Message).
+msgencode(start, Message = #message{version=V, type=request, method=M, uri=U}) ->
+	M++" "++U++" SIP/"++V++"\r\n";
+msgencode(start, Message = #message{version=V, type=response, status=S, reason=R, headers=H}) ->
+	EH = lists:map(fun({X,Y}) -> io_lib:format("~s: ~s\r\n", [utils:title(X),Y]) end,	
+		dict:to_list(H)),
+	lists:append([["SIP/",V," ",integer_to_list(S)," ",R,"\r\n"], EH, ["\r\n"]]);
+msgencode(start, M) ->
+	fail.
+%%#message(type=response,type=response,status=200,reason=Trying,
+
+%% response code
+response(Request, 100) ->
+	Request#message{type=response, status=100, reason="Trying"};
+response(Request, 200) ->
+	Request#message{type=response, status=200, reason="OK"}.
+
+
+handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
+	?DEBUG("handle register", []),
+
+	gen_tcp:send(Sock, msgencode(response(M, 100))),
+
+	?DEBUG("~p", dict:fetch("User-agent", Headers)),
+	%%mnesia:write(#registration{ip=,port=,transport=,ua=,timeout=,ping=}).
+	gen_tcp:send(Sock, msgencode(response(M, 200))),
+	ok;
+handle(_, _) ->
+	fail.
 
 %% unused
 
