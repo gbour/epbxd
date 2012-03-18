@@ -95,7 +95,11 @@ msgdecode(header, Message, [""|Next]) ->
 
 msgdecode(header, Message, [Token|Next]) ->
 	[Key, Value] = re:split(Token, ": ", [{return,list},{parts,2}]),
-	M = Message#message{headers=dict:append(utils:title(Key),Value,Message#message.headers)},
+	M = Message#message{headers=dict:append(
+			utils:title(Key),
+			header:decode(utils:title(Key), Value),
+			Message#message.headers
+		)},
 	msgdecode(header, M, Next).
 
 
