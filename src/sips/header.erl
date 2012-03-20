@@ -20,7 +20,7 @@
 %%    From: Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8
 %%
 decode("From", Value) ->
-	case re:run(Value, "^\s*\"(?<display>[^\"]+)\"\s+<(?<uri>[^>]+)>\s*(?<params>.*)$",
+	case re:run(Value, "^\s*(\"(?<display>[^\"]+)\"\s+)?<(?<uri>[^>]+)>\s*(?<params>.*)$",
 		[{capture,[display,uri,params],list}]) of
 
 		{match, [D,U,P]} ->
@@ -37,7 +37,7 @@ decode("Contact", Value) ->
 %% CSeq header
 %%		CSeq: 100 REGISTER
 %%
-decode("CSeq", Value) ->
+decode("Cseq", Value) ->
 	try
 		[Number, Method] = string:tokens(Value, " "),
 		{list_to_integer(Number), Method}
