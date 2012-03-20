@@ -32,7 +32,7 @@ msgdecode_test() ->
 				"v=0",
 				"o=twinkle 1684153369 1202521382 IN IP4 192.168.0.187"]),
 		{message,"2.0",undefined,undefined,undefined,undefined,undefined,
-			dict:from_list([{"Cseq",[{100,"INVITE"}]},{"Max-forwards",["70"]}]),
+			dict:from_list([{"Cseq",[{100,"INVITE"}]},{"Max-forwards",[70]}]),
 			"v=0\r\no=twinkle 1684153369 1202521382 IN IP4 192.168.0.187"
 	}),
 
@@ -63,7 +63,7 @@ msgdecode_test() ->
 		{message,"2.0",request,'INVITE',"sip:101@192.168.0.194",undefined,undefined,
 			dict:from_list([
 					{"Via",["Roma"]},
-					{"Max-forwards",["70"]},
+					{"Max-forwards",[70]},
 					{"To",[{address,[],{uri,"sip","101",[],"192.168.0.194",[],[],[]},[]}]},
 					{"Cseq",[{338,"INVITE"}]}
 			]),
@@ -84,7 +84,7 @@ msgdecode_test() ->
 					{"Via",["SIP/2.0/UDP"]},
 					{"Cseq",[{100,"REGISTER"}]},
 					{"User-agent",["Epbxd"]},
-					{"Content-length",["0"]}
+					{"Content-length",[0]}
 			]),
 			""
 	}),
