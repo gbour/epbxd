@@ -48,10 +48,10 @@ decode("Cseq", Value) ->
 	end;
 
 %%
-%% Max-Forward header
-%%    Max-Forward: 70
+%% Max-Forwards header
+%%    Max-Forwards: 70
 %%
-decode("Max-forward", Value) ->
+decode("Max-forwards", Value) ->
 	try
 		list_to_integer(Value)
 	of
@@ -65,7 +65,7 @@ decode("Max-forward", Value) ->
 %%    Content-Length: 1548
 %%
 decode("Content-length", Value) ->
-	decode("Max-forward", Value);
+	decode("Max-forwards", Value);
 
 
 %%decode("CSeq", Value) ->
