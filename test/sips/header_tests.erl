@@ -23,4 +23,12 @@ decode_test() ->
 	?assertEqual(header:decode("Cseq", "fail")      , invalid),
 	?assertEqual(header:decode("Cseq", "zaz INVITE"), invalid),
 
-	?assert(true).
+	%% Max-Forward
+	?assertEqual(header:decode("Max-forward", "70")    , 70),
+	?assertEqual(header:decode("Max-forward", "foobar"), invalid),
+
+	%% Content-Length
+	?assertEqual(header:decode("Content-length", "1547")  , 1547),
+	?assertEqual(header:decode("Content-length", "foobar"), invalid),
+
+	ok.

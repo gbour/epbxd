@@ -47,6 +47,27 @@ decode("Cseq", Value) ->
 		_:_   -> invalid
 	end;
 
+%%
+%% Max-Forward header
+%%    Max-Forward: 70
+%%
+decode("Max-forward", Value) ->
+	try
+		list_to_integer(Value)
+	of
+		Ret -> Ret
+	catch
+		_:_ -> invalid
+	end;
+
+%%
+%% Content-Length header
+%%    Content-Length: 1548
+%%
+decode("Content-length", Value) ->
+	decode("Max-forward", Value);
+
+
 %%decode("CSeq", Value) ->
 %%	[Number, Method] = string:tokens(Value, " "),
 %%	{list_to_integer(Number), Method};
