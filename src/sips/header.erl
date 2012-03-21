@@ -37,6 +37,13 @@ decode("Contact", Value) ->
 	decode("From", Value);
 
 %%
+%% Content-Length header
+%%    Content-Length: 1548
+%%
+decode("Content-length", Value) ->
+	decode("Max-forwards", Value);
+
+%%
 %% CSeq header
 %%		CSeq: 100 REGISTER
 %%
@@ -64,12 +71,23 @@ decode("Max-forwards", Value) ->
 	end;
 
 %%
-%% Content-Length header
-%%    Content-Length: 1548
+%% Via
+%%		Via: SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKddnebypp
 %%
-decode("Content-length", Value) ->
-	decode("Max-forwards", Value);
+decode("Via", Value) ->
+	case re:run(Value, "^\s*SIP/2.0/(?<transport>[^\s]+)\s+(?<host>[^;:\s]+)(:(?<port>\\d+))?(?<params>.*)$",
+		[{capture,[transport,host,port,params],list}]) of
 
+		{match, [T,H,Pt,P]} ->
+			Pt_ = if 
+				Pt == [] -> undefined;
+				true     -> list_to_integer(Pt)
+			end,
+
+			#via{transport=via_transport(T),host=H,port=Pt_,params=uri:params(P)};
+		_ ->
+			invalid
+	end;
 
 %%decode("CSeq", Value) ->
 %%	[Number, Method] = string:tokens(Value, " "),
@@ -82,17 +100,46 @@ decode(_,V) ->
 	V.
 
 
+via_transport("UDP")  ->
+	udp;
+via_transport("TCP")  ->
+	tcp;
+via_transport("TLS")  ->
+	tls;
+via_transport("SCTP") ->
+	sctp;
+via_transport(_A) ->
+	invalid.
+
 %%
 %% ENCODING HEADERS
 %%
 encode("Call-id", Value) ->
 	encode("Call-ID", Value);
 
+encode("Content-length", V) ->
+	encode("Content-Length", V);
+
+encode("Content-type", V) ->
+	encode("Content-Type", V);
+
 encode("Cseq", {Seq, Method}) ->
 	lists:concat(["CSeq: ",integer_to_list(Seq)," ",Method]);
 
+encode("Max-forwards", V) ->
+	encode("Max-Forwards", V);
+
 encode("User-agent", Value) ->
 	encode("User-Agent", Value);
+
+encode("Via", #via{transport=T,host=H,port=undefined,params=P}) ->
+	lists:concat([
+		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,uri:format(params,P)
+	]);
+encode("Via", #via{transport=T,host=H,port=Pt,params=P}) ->
+	lists:concat([
+		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,":",Pt,uri:format(params,P)
+	]);
 
 encode(Header, #address{displayname=undefined,uri=U,params=P}) when
 		Header =:= "From";

@@ -35,6 +35,17 @@ decode_test() ->
 
 	ok.
 
+
+decode_via_test() ->
+	?assertEqual(header:decode("Via","SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKchhwgyha"),
+		{via,udp,"192.168.0.187",5069,[{"branch","z9hG4bKchhwgyha"}]}),
+	?assertEqual(header:decode("Via","SIP/2.0/UDP 192.168.0.187"),
+		{via,udp,"192.168.0.187",undefined,[]}),
+	ok.
+
+
+%% HEADERS ENCODING
+
 encode_callid_test() ->
 	?assertEqual(header:encode("Call-id","ejpkbwsvnzotlba@bour.cc"),
 		"Call-ID: ejpkbwsvnzotlba@bour.cc").
@@ -75,7 +86,27 @@ encode_contact_test() ->
 
 	ok.
 
+encode_via_test() ->
+	?assertEqual(header:encode("Via",	#via{transport=udp,host="192.168.0.187",port=5069,
+				params=[{branch,"z9hG4bKchhwgyha"}]}),
+		"Via: SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKchhwgyha"
+	),
+	?assertEqual(header:encode("Via",	#via{transport=udp,host="192.168.0.187"}),
+		"Via: SIP/2.0/UDP 192.168.0.187"
+	),
+	ok.
 
+encode_content_length_test() ->
+	?assertEqual(header:encode("Content-length", 125), "Content-Length: 125"),
+	ok.
+
+encode_content_type_test() ->
+	?assertEqual(header:encode("Content-type", "raw"), "Content-Type: raw"),
+	ok.
+
+encode_max_forwards_test() ->
+	?assertEqual(header:encode("Max-forwards", 70), "Max-Forwards: 70"),
+	ok.
 
 encode_default_string_test() ->
 	?assertEqual(header:encode("Foo","Bar"), "Foo: Bar").
