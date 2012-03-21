@@ -2,6 +2,8 @@
 -module(header_tests).
 -include_lib("eunit/include/eunit.hrl").
 
+-include("sips/sips.hrl").
+
 decode_test() ->
 	%% From
 	?assertEqual(header:decode("From", "foobar"), invalid),
@@ -32,3 +34,55 @@ decode_test() ->
 	?assertEqual(header:decode("Content-length", "foobar"), invalid),
 
 	ok.
+
+encode_callid_test() ->
+	?assertEqual(header:encode("Call-id","ejpkbwsvnzotlba@bour.cc"),
+		"Call-ID: ejpkbwsvnzotlba@bour.cc").
+
+encode_cseq_test()    ->
+	?assertEqual(header:encode("Cseq",{100,"INVITE"}), "CSeq: 100 INVITE").
+
+encode_useragent_test() ->
+	?assertEqual(header:encode("User-agent", "Epbxd"), "User-Agent: Epbxd").
+
+encode_from_test() ->
+	?assertEqual(
+		header:encode("From",
+				#address{displayname="101",uri=#uri{scheme="sip",user="bob",host="biloxi.com"}}),
+		"From: \"101\" <sip:bob@biloxi.com>"
+	),
+
+	ok.
+
+encode_to_test() ->
+	?assertEqual(
+		header:encode("To",
+				#address{displayname="101",uri=#uri{scheme="sip",user="bob",host="biloxi.com"},
+					params=[{"tag","15er75d2"}]}),
+		"To: \"101\" <sip:bob@biloxi.com>;tag=15er75d2"
+	),
+
+	ok.
+
+encode_contact_test() ->
+	?assertEqual(
+		header:encode("Contact",
+			#address{displayname=undefined,uri=#uri{scheme="sips",user="101",host="192.168.0.10",
+					port=445,params=[{"transport","udp"}]},
+					params=[{"expires","3600"}]}),
+		"Contact: <sips:101@192.168.0.10:445;transport=udp>;expires=3600"
+	),
+
+	ok.
+
+
+
+encode_default_string_test() ->
+	?assertEqual(header:encode("Foo","Bar"), "Foo: Bar").
+
+encode_default_integer_test() ->
+	?assertEqual(header:encode("Foo",123), "Foo: 123").
+
+encode_fail_test()    ->
+	?assertEqual(header:encode("Foo", false), invalid).
+

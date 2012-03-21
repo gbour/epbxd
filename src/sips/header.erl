@@ -5,11 +5,14 @@
 -module(header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([decode/2]).
+-export([decode/2, encode/2]).
 
 -include("utils.hrl").
 -include("sips.hrl").
 
+%%
+%% DECODING
+%%
 
 %%
 %% From, To, Contact headers
@@ -77,3 +80,34 @@ decode("Content-length", Value) ->
 %%   keep original value
 decode(_,V) ->
 	V.
+
+
+%%
+%% ENCODING HEADERS
+%%
+encode("Call-id", Value) ->
+	encode("Call-ID", Value);
+
+encode("Cseq", {Seq, Method}) ->
+	lists:concat(["CSeq: ",integer_to_list(Seq)," ",Method]);
+
+encode("User-agent", Value) ->
+	encode("User-Agent", Value);
+
+encode(Header, #address{displayname=undefined,uri=U,params=P}) when
+		Header =:= "From";
+		Header =:= "To";
+		Header =:= "Contact" ->
+	lists:concat([Header,": <",uri:encode(U),">",uri:format(params,P)]);
+encode(Header, #address{displayname=D,uri=U,params=P}) when
+		Header =:= "From";
+		Header =:= "To";
+		Header =:= "Contact" ->
+	lists:concat([Header,": \"",D,"\" <",uri:encode(U),">",uri:format(params,P)]);
+
+encode(Header, Value) when is_list(Value) ->
+	lists:concat([Header,": ",Value]);
+encode(Header, Value) when is_integer(Value) ->
+	lists:concat([Header,": ",integer_to_list(Value)]);
+encode(_,_) ->
+	invalid.
