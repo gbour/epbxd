@@ -67,7 +67,7 @@ msgdecode_test() ->
 			dict:from_list([
 					{"Via",[{via,udp,"Roma",undefined,[]}]},
 					{"Max-forwards",[70]},
-					{"To",[{address,[],{uri,"sip","101",[],"192.168.0.194",[],[],[]},[]}]},
+					{"To",[{address,[],{uri,"sip","101",undefined,"192.168.0.194",[],[],[]},[]}]},
 					{"Cseq",[{338,"INVITE"}]}
 			]),
 			"v=0\r\no=twinkle 1684153369 1202521382 IN IP4 192.168.0.187"
