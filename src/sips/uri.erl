@@ -19,7 +19,12 @@ decode(Uri) ->
 	case re:run(Uri,
 			"^(?<scheme>[^:]+):(?<user>[^:@]+)(:(?<pwd>[^@]+))?@(?<host>[^:?;]+)(:(?<port>\\d+))?(?<params>[^?]*)(?<headers>.*)$",[{capture,[scheme,user,pwd,host,port,params,headers],list}]) of
 		{match, [Scheme,User,Pwd,Host,Port,Params,Headers]} ->
-			#uri{scheme=Scheme,user=User,password=Pwd,host=Host,port=Port,
+			_Pwd = if
+				length(Pwd) == 0 -> undefined;
+				true             -> Pwd
+			end,
+
+			#uri{scheme=Scheme,user=User,password=_Pwd,host=Host,port=Port,
 				params=params(Params),
 				headers=headers(Headers)
 			};

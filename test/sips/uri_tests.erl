@@ -16,15 +16,15 @@ headers_test() ->
 
 decode_test() ->
 	?assertEqual(uri:decode("sip:bob@biloxi.com"), 
-			{uri, "sip","bob",[],"biloxi.com",[],[],[]}),
+			{uri, "sip","bob",undefined,"biloxi.com",[],[],[]}),
 	?assertEqual(uri:decode("sip:bob:pwd@biloxi.com"), 
 			{uri, "sip","bob","pwd","biloxi.com",[],[],[]}),
 	?assertEqual(uri:decode("sip:bob@biloxi.com:42"), 
-			{uri, "sip","bob",[],"biloxi.com","42",[],[]}),
+			{uri, "sip","bob",undefined,"biloxi.com","42",[],[]}),
 	?assertEqual(uri:decode("sip:bob@biloxi.com;transport=tcp"), 
-			{uri, "sip","bob",[],"biloxi.com",[],[{"transport","tcp"}],[]}),
+			{uri, "sip","bob",undefined,"biloxi.com",[],[{"transport","tcp"}],[]}),
 	?assertEqual(uri:decode("sip:bob@biloxi.com?a=1"), 
-			{uri, "sip","bob",[],"biloxi.com",[],[],[{"a","1"}]}),
+			{uri, "sip","bob",undefined,"biloxi.com",[],[],[{"a","1"}]}),
 	?assertEqual(uri:decode("sip:bob:goose@biloxi.com:77;user=phone?callback=foobar"), 
 			{uri,"sip","bob","goose","biloxi.com","77",[{"user","phone"}],[{"callback","foobar"}]}).
 
