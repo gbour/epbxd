@@ -40,6 +40,14 @@
 		params
 }).
 
+%% Via header
+-record(via, {
+	transport,
+	host,
+	port,
+	params
+}).
+
 %% SIP URI
 -record(uri, {
 		scheme,               %% sip, sips, tel, ...
@@ -50,3 +58,4 @@
 		params,
 		headers
 }).
+

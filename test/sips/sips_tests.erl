@@ -38,21 +38,24 @@ msgdecode_test() ->
 
 	%% same header twice
 	?assertEqual(sips:msgdecode(header, #message{}, [
-				"Via: Roma",
+				"Via: SIP/2.0/UDP Roma",
 				"CSeq: 100 INVITE",
-				"Via: Paris",
+				"Via: SIP/2.0/TCP Paris",
 				"",
 				"v=0",
 				"o=twinkle 1684153369 1202521382 IN IP4 192.168.0.187"]),
 		{message,"2.0",undefined,undefined,undefined,undefined,undefined,
-			dict:from_list([{"Cseq",[{100,"INVITE"}]},{"Via",["Roma","Paris"]}]),
+			dict:from_list([
+				{"Cseq",[{100,"INVITE"}]},
+				{"Via",[{via,udp,"Roma",undefined,[]},{via,tcp,"Paris",undefined,[]}]}
+			]),
 			"v=0\r\no=twinkle 1684153369 1202521382 IN IP4 192.168.0.187"
 	}),
 
 	%% full SIP request message
 	?assertEqual(sips:msgdecode(start, #message{}, [
 				"INVITE sip:101@192.168.0.194 SIP/2.0",
-				"Via: Roma",
+				"Via: SIP/2.0/UDP Roma",
 				"Max-Forwards: 70",
 				"To: <sip:101@192.168.0.194>",
 				"CSeq: 338 INVITE",
@@ -62,7 +65,7 @@ msgdecode_test() ->
 			]),
 		{message,"2.0",request,'INVITE',"sip:101@192.168.0.194",undefined,undefined,
 			dict:from_list([
-					{"Via",["Roma"]},
+					{"Via",[{via,udp,"Roma",undefined,[]}]},
 					{"Max-forwards",[70]},
 					{"To",[{address,[],{uri,"sip","101",[],"192.168.0.194",[],[],[]},[]}]},
 					{"Cseq",[{338,"INVITE"}]}
@@ -73,7 +76,7 @@ msgdecode_test() ->
 	%% full SIP response
 	?assertEqual(sips:msgdecode(start, #message{}, [
 				"SIP/2.0 100 Trying",
-				"Via: SIP/2.0/UDP",
+				"Via: SIP/2.0/UDP 192.168.10.24:456",
 				"CSeq: 100 REGISTER",
 				"User-Agent: Epbxd",
 				"Content-Length: 0",
@@ -81,7 +84,7 @@ msgdecode_test() ->
 			]),
 		{message,"2.0",response,undefined,undefined,"100","Trying",
 			dict:from_list([
-					{"Via",["SIP/2.0/UDP"]},
+					{"Via",[{via,udp,"192.168.10.24",456,[]}]},
 					{"Cseq",[{100,"REGISTER"}]},
 					{"User-agent",["Epbxd"]},
 					{"Content-length",[0]}
@@ -92,10 +95,10 @@ msgdecode_test() ->
 
 	ok.
 
-msgencode_test() ->
-	%%
-	%% SIP Response
-	%%
+%%
+%% SIP Response
+%%
+msgencode_response_test() ->
 	?assertEqual(sips:msgencode(start, #message{
 		type=response,
 		status=200,
@@ -135,9 +138,51 @@ msgencode_test() ->
 		"Expires: 3600\r\n"
 		"Contact: <sip:104@192.168.0.187:5069>;expires=3600\r\n"
 		"Date: Tue, 29 Nov 2011 10:10:35 GMT\r\n"
-		"Content-length: 0\r\n"
+		"Content-Length: 0\r\n"
 		"\r\n"
 	),
 
 	ok.
 
+%%%
+%%% SIP Request
+%%%
+msgencode_request_test() ->
+	?assertEqual(sips:msgencode(start, #message{
+		type=request,
+		method='INVITE',
+		uri=#uri{scheme=sip,user=101,host="192.168.0.194"},
+		headers=[
+			{"Via" 				   ,#via{transport=udp,host="192.168.0.187",port=5069,
+						params=[{branch,"z9hG4bKchhwgyha"}]}},
+			{"Max-forwards"  ,70},
+			{"To"				     ,#address{uri=#uri{scheme=sip,user=101,host="192.168.0.194"}}},
+			{"From"  				 ,#address{displayname="104",uri=#uri{scheme=sip,user=104,
+						host="192.168.0.194"},params=[{tag,"hbbzq"}]}},
+			{"Call-id"       ,"szde@bour.cc"},
+			{"Cseq"          ,{554,"INVITE"}},
+			{"Contact" 			 ,#address{uri=#uri{scheme=sip,user=104,host="192.168.0.187",port=5069}}},
+			{"Content-type"  ,"application/sdp"},
+			{"Allow"         ,"INVITE,ACK,BYE,CANCEL"},
+			{"Supported"     ,"none"},
+			{"User-agent"    ,"Supabx"},
+			{"Content-length",0}
+		]}),
+
+		"INVITE sip:101@192.168.0.194 SIP/2.0\r\n"
+		"Via: SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKchhwgyha\r\n"
+		"Max-Forwards: 70\r\n"
+		"To: <sip:101@192.168.0.194>\r\n"
+		"From: \"104\" <sip:104@192.168.0.194>;tag=hbbzq\r\n"
+		"Call-ID: szde@bour.cc\r\n"
+		"CSeq: 554 INVITE\r\n"
+		"Contact: <sip:104@192.168.0.187:5069>\r\n"
+		"Content-Type: application/sdp\r\n"
+		"Allow: INVITE,ACK,BYE,CANCEL\r\n"
+		"Supported: none\r\n"
+		"User-Agent: Supabx\r\n"
+		"Content-Length: 0\r\n"
+		"\r\n"
+	),
+
+	ok.

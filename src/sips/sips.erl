@@ -111,8 +111,14 @@ msgdecode(header, Message, [Token|Next]) ->
 %%
 msgencode(Message) ->
 	msgencode(start, Message).
-msgencode(start, Message = #message{version=V, type=request, method=M, uri=U}) ->
-	M++" "++U++" SIP/"++V++"\r\n";
+msgencode(start, Message = #message{version=V,type=request,method=M,uri=U,headers=H}) ->
+	string:join(
+		lists:append([
+			[atom_to_list(M)," ",uri:encode(U)," SIP/",V,"\r\n"],
+			lists:map(fun({X,Y}) -> header:encode(X,Y)++"\r\n" end, H),
+			["\r\n"]
+		]),
+	"");
 msgencode(start, Message = #message{version=V, type=response, status=S, reason=R, headers=H}) ->
 	string:join(
 		lists:append([
