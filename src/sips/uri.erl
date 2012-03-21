@@ -33,12 +33,17 @@ decode(Uri) ->
 	end.
 
 params(Params) ->
-	case re:run(Params, ";\s*(?<k>[^=]+)=(?<v>[^;]+)",[global,{capture,[k,v],list}]) of
+	case re:run(Params, ";\s*(?<k>[^=;]+)(=(?<v>[^;]+))?",[global,{capture,[k,v],list}]) of
 		{match, Matches} ->
-			lists:map(fun(E) -> list_to_tuple(E) end, Matches);
+			lists:map(fun([K, V]) -> list_to_tuple([K, pvalue(V)]) end, Matches);
 		_ ->
 			[]
 	end.
+
+pvalue([]) ->
+	undefined;
+pvalue(V)  ->
+	V.
 
 headers("?"++Headers) ->
 	lists:map(

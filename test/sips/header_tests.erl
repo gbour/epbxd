@@ -39,6 +39,9 @@ decode_test() ->
 decode_via_test() ->
 	?assertEqual(header:decode("Via","SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKchhwgyha"),
 		{via,udp,"192.168.0.187",5069,[{"branch","z9hG4bKchhwgyha"}]}),
+	%% _rport_ param have no associated value
+	?assertEqual(header:decode("Via","SIP/2.0/UDP 192.168.0.187:5069;rport;branch=z9hG4bKchhwgyha"),
+		{via,udp,"192.168.0.187",5069,[{"rport",undefined},{"branch","z9hG4bKchhwgyha"}]}),
 	?assertEqual(header:decode("Via","SIP/2.0/UDP 192.168.0.187"),
 		{via,udp,"192.168.0.187",undefined,[]}),
 	ok.
