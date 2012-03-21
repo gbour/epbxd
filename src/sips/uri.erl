@@ -5,9 +5,9 @@
 -module(uri).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([decode/1]).
+-export([decode/1,params/1,encode/1,format/2]).
 -ifdef(debug).
-	-export([params/1,headers/1]).
+	-export([headers/1, password/1]).
 -endif.
 
 -include("utils.hrl").
@@ -42,3 +42,39 @@ headers("?"++Headers) ->
 	);
 headers(_) ->
 	[].
+
+%%
+%% Encode URI
+%%
+password(undefined) ->
+	[];
+password(P) when is_list(P) ->
+	":"++P.
+
+port(undefined) ->
+	[];
+port(P) when is_list(P) ->
+	":"++P;
+port(P) when is_integer(P) ->
+	":"++integer_to_list(P).
+
+format(_,undefined) ->
+	[];
+format(_,[]) ->
+	[];
+format(params_,[{K,V}|T]) ->
+	[";",K,"=",V]++format(params_,T);
+format(params,V) ->
+	lists:concat(format(params_,V));
+format(headers_,[{K,V}|T]) ->
+	lists:append([lists:concat([K,"=",V])], format(headers_,T));
+format(headers,V) ->
+	"?"++string:join(format(headers_, V),"&").
+
+encode(#uri{scheme=S,user=U,password=P,host=H,port=Pt,params=Pm,headers=Hd}) ->
+	lists:concat([
+		S,":",U,password(P),"@",H,port(Pt),
+		format(params,Pm),
+		format(headers,Hd)
+	]).
+
