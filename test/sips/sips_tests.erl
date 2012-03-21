@@ -93,5 +93,51 @@ msgdecode_test() ->
 	ok.
 
 msgencode_test() ->
+	%%
+	%% SIP Response
+	%%
+	?assertEqual(sips:msgencode(start, #message{
+		type=response,
+		status=200,
+		reason="OK",
+		%% using a proplist to keep order
+		headers=[
+				{"Via"           ,"SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKddnebypp"},
+				{"From"          ,#address{displayname="104",
+						uri=#uri{scheme="sip",user="104",host="192.168.0.194"},params=[{tag,"eyxie"}]
+				}},
+				{"To"            ,#address{displayname="104",
+						uri=#uri{scheme="sip",user="104",host="192.168.0.194"},params=[{tag,"as0e9a3d03"}]
+				}},
+				{"Call-id"       ,"sapisdmefrjxwmp@bour.cc"},
+				{"Cseq"          ,{100,"REGISTER"}},
+				{"User-agent"    ,"Epbxd"},
+				{"Allow"         ,"INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE,NOTIFY,INFO"},
+				{"Supported"     ,"replaces"},
+				{"Expires"       ,3600},
+				{"Contact" 			 ,#address{uri=#uri{scheme=sip,user=104,host="192.168.0.187",port=5069},
+						params=[{"expires",3600}]
+				}},
+				{"Date"          ,"Tue, 29 Nov 2011 10:10:35 GMT"},
+				{"Content-length",0}
+		]}),
+
+
+		"SIP/2.0 200 OK\r\n"
+		"Via: SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKddnebypp\r\n"
+		"From: \"104\" <sip:104@192.168.0.194>;tag=eyxie\r\n"
+		"To: \"104\" <sip:104@192.168.0.194>;tag=as0e9a3d03\r\n"
+		"Call-ID: sapisdmefrjxwmp@bour.cc\r\n"
+		"CSeq: 100 REGISTER\r\n"
+		"User-Agent: Epbxd\r\n"
+		"Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE,NOTIFY,INFO\r\n"
+		"Supported: replaces\r\n"
+		"Expires: 3600\r\n"
+		"Contact: <sip:104@192.168.0.187:5069>;expires=3600\r\n"
+		"Date: Tue, 29 Nov 2011 10:10:35 GMT\r\n"
+		"Content-length: 0\r\n"
+		"\r\n"
+	),
+
 	ok.
 

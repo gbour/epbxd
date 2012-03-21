@@ -6,7 +6,7 @@
 -export([start_link/3, init/1, acceptor/2, processor/2, code_change/3, terminate/2, handle_call/3, handle_info/2,
 	handle_cast/2]).
 -ifdef(debug).
-	-export([sip_decoder/2,response/2, msgencode/1, msgencode/2]).
+	-export([sipdecoder/2, response/2, msgdecode/3, msgencode/2]).
 -endif.
 
 
@@ -75,7 +75,10 @@ sipdecoder(Socket, Message) ->
 			{error, Reason}
 	end.
 
-%% decode SIP headers
+
+%%
+%% Decode SIP message
+%%
 msgdecode(start, Message, [Token|Next]) ->
 	M = case re:split(Token," ",[{return,list},{parts,3}]) of
 		["SIP/"++Version, Status, Reason] ->
@@ -103,15 +106,21 @@ msgdecode(header, Message, [Token|Next]) ->
 	msgdecode(header, M, Next).
 
 
-%% encode message
+%%
+%% Encode SIP message
+%%
 msgencode(Message) ->
 	msgencode(start, Message).
 msgencode(start, Message = #message{version=V, type=request, method=M, uri=U}) ->
 	M++" "++U++" SIP/"++V++"\r\n";
 msgencode(start, Message = #message{version=V, type=response, status=S, reason=R, headers=H}) ->
-	EH = lists:map(fun({X,Y}) -> io_lib:format("~s: ~s\r\n", [utils:title(X),Y]) end,	
-		dict:to_list(H)),
-	lists:append([["SIP/",V," ",integer_to_list(S)," ",R,"\r\n"], EH, ["\r\n"]]);
+	string:join(
+		lists:append([
+			["SIP/",V," ",integer_to_list(S)," ",R,"\r\n"],
+			lists:map(fun({X,Y}) -> header:encode(X,Y)++"\r\n" end, H),
+			["\r\n"]
+		]),
+	"");
 msgencode(start, M) ->
 	fail.
 %%#message(type=response,type=response,status=200,reason=Trying,
