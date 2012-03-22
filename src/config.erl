@@ -11,7 +11,8 @@ load(Filename) ->
 
 			case ets:info(config) of
 				undefined ->
-					ets:new(config, [set,private,named_table,{read_concurrency,true}]);
+					% permission MUST BE protected or public, to let other process access content
+					ets:new(config, [set,named_table,{read_concurrency,true}]);
 				_ ->
 					ets:delete_all_objects(config)
 			end,
