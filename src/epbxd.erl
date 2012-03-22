@@ -5,11 +5,16 @@
 -behaviour(application).
 -export([start/2, stop/1]).
 -include("utils.hrl").
+-include("sips/sips.hrl").
 
 start(normal, Args) ->
 	config:load(get_config_file()),
 	logging:init(config:get(logfile)),
 	%%logging:loglevel(config:get("loglevel")),
+
+	%%TODO: SHOULD create schema/table only if not exists
+	mnesia:create_schema([node()]),
+	mnesia:start(),
 
 	%% NOTE: cannot debug until logging is initialized
 	?DEBUG("app:start",[]),

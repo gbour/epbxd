@@ -24,6 +24,18 @@ start_link(Mod, Args, Opts) ->
 
 %% we extract Port variable from Server record
 init([Server = #server{port=Port}, Callback]) ->
+	%% create mnesia tables
+	mnesia:create_table(registrations, 
+		[{attributes,record_info(fields,registration)},{record_name,registration}]),
+	mnesia:create_table(endpoints, 
+		[{attributes,record_info(fields,endpoint)},{record_name,endpoint}]),
+	lists:foreach(fun(EP) ->
+				mnesia:dirty_write(endpoints, #endpoint{name=proplists:get_value(name,EP)})
+		end, config:get(endpoints)
+	),
+
+	%% /END
+
 	%%TODO: manage TCP/UDP switch
 	case gen_tcp:listen(Port, ?TCP_OPTIONS) of
 		{ok, Socket} -> 
@@ -55,6 +67,8 @@ acceptor(LSocket, Callback) ->
 
 %% process incoming connection
 processor(Socket, {M, C}) ->
+	random:seed(now()),
+
 	%% invoke message decoder
 	{Status, Message} = M:C(Socket, #message{}),
 
@@ -75,6 +89,9 @@ sipdecoder(Socket, Message) ->
 			{error, Reason}
 	end.
 
+send(Sock, Message) ->
+	?DEBUG("send message: ~p ~p", [Message, msgencode(Message)]),
+	gen_tcp:send(Sock, msgencode(Message)).
 
 %%
 %% Decode SIP message
@@ -132,20 +149,74 @@ msgencode(start, M) ->
 %%#message(type=response,type=response,status=200,reason=Trying,
 
 %% response code
-response(Request, 100) ->
-	Request#message{type=response, status=100, reason="Trying"};
-response(Request, 200) ->
-	Request#message{type=response, status=200, reason="OK"}.
+response(trying, Msg)    ->
+	Msg#message{type=response, status=100, reason="Trying"};
+response(ok    , Msg)    ->
+	Msg#message{type=response, status=200, reason="OK"}.
+% custom reason
+response(Type, Msg, Reason) ->
+	Response = response(Type, Msg),
+	Response#message{reason=Response#message.reason++" "++Reason}.
 
+%%
+%% Handle SIP REQUESTS
+%%
 
+%% REGISTER
 handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
 	?DEBUG("handle register", []),
 
-	gen_tcp:send(Sock, msgencode(response(M, 100))),
+	% send TRYING message
+	%gen_tcp:send(Sock, msgencode(response(M, 100))),
 
-	?DEBUG("~p", dict:fetch("User-agent", Headers)),
-	%%mnesia:write(#registration{ip=,port=,transport=,ua=,timeout=,ping=}).
-	gen_tcp:send(Sock, msgencode(response(M, 200))),
+	% lookup endpoints database
+	To    = lists:nth(1,dict:fetch("To", Headers)),
+	User  = To#address.uri#uri.user,
+	?DEBUG("SIP:REGISTER= loopkup ~s endpoint", [User]),
+
+	% default registration expiry (in seconds)
+	Expires = 3600,
+
+	case
+		mnesia:dirty_read(endpoints,User)
+	of
+		% 200 OK
+		[Endpt] -> 
+				?DEBUG("Found endpoint: ~p", [Endpt]),
+
+				Contact = lists:nth(1,dict:fetch("Contact",Headers)),
+				Ua      = lists:nth(1,dict:fetch("User-agent", Headers)),
+
+				mnesia:dirty_write(registrations,#registration{
+					name   = User,
+					uri    = Contact#address.uri
+				}),
+
+				% TODO: handle Via header
+				To =  lists:nth(1,dict:fetch("To",Headers)),
+				_To =	To#address{params=lists:append(To#address.params,[{"tag",header:tag()}])},
+
+				Via = lists:nth(1,dict:fetch("Via",Headers)),
+
+				send(Sock, response(ok, #message{
+					headers=[
+						{"Via"           , Via},
+						{"From"          , lists:nth(1,dict:fetch("From",Headers))},
+						{"To"            ,_To},
+						{"Call-id"       , lists:nth(1,dict:fetch("Call-id",Headers))},
+						{"Cseq"          , lists:nth(1,dict:fetch("Cseq",Headers))},
+						{"User-agent"    ,"epbxd"},
+						{"Allow"         ,"foobar"},
+						{"Content-length",0}
+					]
+				}, "\\o/")),
+
+				ok;
+
+		% 404 NOT FOUND
+		[]      -> ?DEBUG("Endpoint not found. Returning 404",[])
+	end,
+
 	ok;
 handle(_, _) ->
 	fail.

@@ -20,14 +20,25 @@
 }).
 
 -record(session , {callerid, seq}).
--record(endpoint, {id, ip, port}).
+%%-record(endpoint, {id, ip, port}).
+
+%% account
+-record(endpoint, {
+		name,
+		desc,
+		password,
+		domain,
+		ssl                   %% true,false,ondemand
+}).
 
 %% endpoint registration record
 -record(registration, {
+		name,
+		uri,
 		macaddr, 
-		ip, 
-		port, 
-		transport, 
+%		ip, 
+%		port, 
+%		transport, 
 		ua,
 		timeout,              %% timeout datetime
 		ping                  %% ping datetime
