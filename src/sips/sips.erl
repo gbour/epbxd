@@ -212,6 +212,7 @@ handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
 						{"To"            ,_To},
 						{"Call-id"       , lists:nth(1,dict:fetch("Call-id",Headers))},
 						{"Cseq"          , lists:nth(1,dict:fetch("Cseq",Headers))},
+						{"Expires"       , 3600},
 						{"User-agent"    ,"epbxd"},
 						{"Allow"         ,"foobar"},
 						{"Content-length",0}
