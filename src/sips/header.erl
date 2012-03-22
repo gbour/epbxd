@@ -5,7 +5,7 @@
 -module(header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([decode/2, encode/2]).
+-export([decode/2, encode/2, tag/0]).
 
 -include("utils.hrl").
 -include("sips.hrl").
@@ -158,3 +158,13 @@ encode(Header, Value) when is_integer(Value) ->
 	lists:concat([Header,": ",integer_to_list(Value)]);
 encode(_,_) ->
 	invalid.
+
+%%
+%% generate tag value
+%%
+tag() ->
+	lists:foldl(
+		fun(_,Acc) -> [io_lib:format("~.16b",[random:uniform(16)-1]) |Acc] end, 
+		[], lists:seq(1,16)
+	).
+
