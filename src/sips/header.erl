@@ -163,8 +163,9 @@ encode(_,_) ->
 %% generate tag value
 %%
 tag() ->
-	lists:foldl(
-		fun(_,Acc) -> [io_lib:format("~.16b",[random:uniform(16)-1]) |Acc] end, 
-		[], lists:seq(1,16)
-	).
+	lists:flatten(
+		lists:foldl(
+			fun(_,Acc) -> [io_lib:format("~.16b",[random:uniform(16)-1]) |Acc] end, 
+			[], lists:seq(1,16)
+	)).
 
