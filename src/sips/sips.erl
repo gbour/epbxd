@@ -82,7 +82,7 @@ sipdecoder(Socket, Message) ->
 	case gen_tcp:recv(Socket, 0) of
 		{ok, Data} -> 
 			?DEBUG("~p", [Data]),
-			{ok, msgdecode(start, Message, re:split(Data, "\r\n", [{return,list}]))};
+			msgdecode(start, Message, re:split(Data, "\r\n", [{return,list}]));
 
 		{error, Reason} ->
 			?ERROR("sips:gen_tcp::recv= ~p", [Reason]),
@@ -90,25 +90,32 @@ sipdecoder(Socket, Message) ->
 	end.
 
 send(Sock, Message) ->
-	?DEBUG("send message: ~p ~p", [Message, msgencode(Message)]),
+	?DEBUG("send message: ~s", [msgencode(Message)]),
 	gen_tcp:send(Sock, msgencode(Message)).
 
 %%
 %% Decode SIP message
 %%
 msgdecode(start, Message, [Token|Next]) ->
-	M = case re:split(Token," ",[{return,list},{parts,3}]) of
+	case re:split(Token," ",[{return,list},{parts,3}]) of
 		["SIP/"++Version, Status, Reason] ->
-			Message#message{type=response,version=Version,status=Status,reason=Reason};
+			{ok, msgdecode(
+				header,
+				Message#message{type=response,version=Version,status=Status,reason=Reason},
+				Next
+			)};
+
 		[Method,URI,"SIP/"++Version] ->
-			Message#message{type=request,version=Version,method=list_to_atom(Method),uri=URI};
+			{ok, msgdecode(
+				header,
+				Message#message{type=request,version=Version,method=list_to_atom(Method),uri=URI},
+				Next
+			)};
 
 		_Else ->
 			?ERROR("sips:msgdecode= invalid SIP message start-line= ~p", [_Else]),
-			""
-	end,
-
-	msgdecode(header, M, Next);
+			{error, invalid_message}
+	end;
 
 msgdecode(header, Message, [""|Next]) ->
 	Message#message{content=string:join(Next, "\r\n")};
