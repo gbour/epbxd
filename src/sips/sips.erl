@@ -117,7 +117,7 @@ msgdecode(Mms, Stream)  ->
 
 
 headers_decode(start, Message, [Token|Next], Rest) ->
-	case re:split(Token," ",[{return,list},{parts,3}]) of
+	case string:tokens(Token, " ") of
 		["SIP/"++Version, Status, Reason] ->
 			headers_decode(
 				header,
