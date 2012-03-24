@@ -239,12 +239,14 @@ handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
 				Via = lists:nth(1,dict:fetch("Via",Headers)),
 
 				send(Sock, response(ok, #message{
+				%send(undefined, response(ok, #message{
 					headers=[
 						{"Via"           , Via},
 						{"From"          , lists:nth(1,dict:fetch("From",Headers))},
 						{"To"            ,_To},
 						{"Call-id"       , lists:nth(1,dict:fetch("Call-id",Headers))},
 						{"Cseq"          , lists:nth(1,dict:fetch("Cseq",Headers))},
+						{"Contact"       , lists:nth(1,dict:fetch("Contact",Headers))}, 
 						{"Expires"       , 3600},
 						{"User-agent"    ,"epbxd"},
 						{"Allow"         ,"foobar"},
