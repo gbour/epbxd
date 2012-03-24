@@ -6,7 +6,7 @@
 -export([start_link/3, init/1, acceptor/2, processor/2, code_change/3, terminate/2, handle_call/3, handle_info/2,
 	handle_cast/2]).
 -ifdef(debug).
-	-export([sipdecoder/2, response/2, msgdecode/3, msgencode/2]).
+	-export([sipdecoder/1, response/2, msgencode/2]).
 -endif.
 
 
@@ -70,19 +70,22 @@ processor(Socket, {M, C}) ->
 	random:seed(now()),
 
 	%% invoke message decoder
-	{Status, Message} = M:C(Socket, #message{}),
+	{Status, Messages} = M:C(Socket),
 
 	%%TODO: handle messages
-	?DEBUG("processor:end= ~p", [Status, Message]),
-	handle(Message, Socket).
+	?DEBUG("processor:end= ~p", [Status]),
+	case Status of
+		ok ->
+			lists:foreach(fun(M) -> handle(M, Socket) end, Messages)
+	end.
 
 %% decode SIP message
-sipdecoder(Socket, Message) ->
+sipdecoder(Socket) ->
 	%% read socket
 	case gen_tcp:recv(Socket, 0) of
 		{ok, Data} -> 
 			?DEBUG("~p", [Data]),
-			msgdecode(start, Message, re:split(Data, "\r\n", [{return,list}]));
+			msgdecode([], Data);
 
 		{error, Reason} ->
 			?ERROR("sips:gen_tcp::recv= ~p", [Reason]),
@@ -96,38 +99,68 @@ send(Sock, Message) ->
 %%
 %% Decode SIP message
 %%
-msgdecode(start, Message, [Token|Next]) ->
+msgdecode(Mms, []) ->
+	{ok, Mms};
+msgdecode(Mms, Stream)  ->
+	case string:str(Stream, "\r\n\r\n") of
+		0 ->
+			{invalid, Mms};
+		P ->
+			{Status, Mn, Rest} = headers_decode(
+				start,
+				#message{},
+				string:tokens(string:substr(Stream,1,P-1), "\r\n"), 
+				string:substr(Stream,P+4)
+			),
+			msgdecode(Mms++[Mn], Rest)
+	end.
+
+
+headers_decode(start, Message, [Token|Next], Rest) ->
 	case re:split(Token," ",[{return,list},{parts,3}]) of
 		["SIP/"++Version, Status, Reason] ->
-			{ok, msgdecode(
+			headers_decode(
 				header,
 				Message#message{type=response,version=Version,status=Status,reason=Reason},
-				Next
-			)};
+				Next,
+				Rest
+			);
 
 		[Method,URI,"SIP/"++Version] ->
-			{ok, msgdecode(
+			headers_decode(
 				header,
 				Message#message{type=request,version=Version,method=list_to_atom(Method),uri=URI},
-				Next
-			)};
+				Next,
+				Rest
+			);
 
 		_Else ->
 			?ERROR("sips:msgdecode= invalid SIP message start-line= ~p", [_Else]),
 			{error, invalid_message}
 	end;
 
-msgdecode(header, Message, [""|Next]) ->
-	Message#message{content=string:join(Next, "\r\n")};
+%msgdecode(header, Message, [""|Next]) ->
+%	Message#message{content=string:join(Next, "\r\n")};
 
-msgdecode(header, Message, [Token|Next]) ->
+headers_decode(header, Message, [Token|Next], Rest) ->
 	[Key, Value] = re:split(Token, ": ", [{return,list},{parts,2}]),
 	M = Message#message{headers=dict:append(
 			utils:title(Key),
 			header:decode(utils:title(Key), Value),
 			Message#message.headers
 		)},
-	msgdecode(header, M, Next).
+	headers_decode(header, M, Next, Rest);
+% end of headers -> reading content
+% TODO: Content-Length is expressed in octet, not characters
+headers_decode(header, Message, [], Rest) ->
+	case lists:nth(1,dict:fetch("Content-length", Message#message.headers)) of
+		0 ->
+			{ok, Message, Rest};
+		L ->
+			{C, R} = lists:split(L,Rest),
+			{ok, Message#message{content=C},R}
+	end.
+				
 
 
 %%
@@ -226,7 +259,8 @@ handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
 	end,
 
 	ok;
-handle(_, _) ->
+handle(#message{type=T,method=M,status=S,reason=R}, _) ->
+	?DEBUG("unknown message ~w ~w/~s ~s",[T,M,S,R]),
 	fail.
 
 %% unused
