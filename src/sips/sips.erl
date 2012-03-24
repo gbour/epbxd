@@ -121,7 +121,7 @@ headers_decode(start, Message, [Token|Next], Rest) ->
 		["SIP/"++Version, Status, Reason] ->
 			headers_decode(
 				header,
-				Message#message{type=response,version=Version,status=Status,reason=Reason},
+				Message#message{type=response,version=Version,status=list_to_integer(Status),reason=Reason},
 				Next,
 				Rest
 			);
@@ -260,7 +260,7 @@ handle(M=#message{type=request,method=REGISTER, headers=Headers}, Sock) ->
 
 	ok;
 handle(#message{type=T,method=M,status=S,reason=R}, _) ->
-	?DEBUG("unknown message ~w ~w/~s ~s",[T,M,S,R]),
+	?DEBUG("unknown message ~w ~w/~b ~s",[T,M,S,R]),
 	fail.
 
 %% unused
