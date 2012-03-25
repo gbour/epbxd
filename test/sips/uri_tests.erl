@@ -15,6 +15,10 @@ headers_test() ->
 	?assertEqual(uri:headers("")        , []).
 
 decode_test() ->
+	% Request-URI (no user)
+	?assertEqual(uri:decode("sip:biloxi.com"), 
+			{uri, "sip",undefined,undefined,"biloxi.com",[],[],[]}),
+
 	?assertEqual(uri:decode("sip:bob@biloxi.com"), 
 			{uri, "sip","bob",undefined,"biloxi.com",[],[],[]}),
 	?assertEqual(uri:decode("sip:bob:pwd@biloxi.com"), 
@@ -29,6 +33,10 @@ decode_test() ->
 			{uri,"sip","bob","goose","biloxi.com","77",[{"user","phone"}],[{"callback","foobar"}]}).
 
 encode_test() ->
+	% Request-URI (no user)
+	?assertEqual(uri:encode(#uri{scheme="sip",host="biloxi.com"}),
+		"sip:biloxi.com"),
+
 	?assertEqual(uri:encode(#uri{scheme="sip",user="bob",host="biloxi.com"}),
 		"sip:bob@biloxi.com"),
 	?assertEqual(uri:encode(#uri{scheme="sip",user="bob",password="blowf1sh",host="biloxi.com"}),

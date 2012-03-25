@@ -7,7 +7,7 @@
 
 -export([decode/1,params/1,encode/1,format/2]).
 -ifdef(debug).
-	-export([headers/1, password/1]).
+	-export([headers/1]).
 -endif.
 
 -include("utils.hrl").
@@ -15,16 +15,18 @@
 
 %% TODO: @host is facultative (see tel: URI)
 %% TODO: cast port to integer type
+
+%% convert empty string (as returned by regex) to undefined atom
+undefined(V) when length(V) == 0 ->
+	undefined;
+undefined(V) ->
+	V.
+
 decode(Uri) ->
 	case re:run(Uri,
-			"^(?<scheme>[^:]+):(?<user>[^:@]+)(:(?<pwd>[^@]+))?@(?<host>[^:?;]+)(:(?<port>\\d+))?(?<params>[^?]*)(?<headers>.*)$",[{capture,[scheme,user,pwd,host,port,params,headers],list}]) of
+			"^(?<scheme>[^:]+):((?<user>[^:@]+)(:(?<pwd>[^@]+))?@)?(?<host>[^@:?;]+)(:(?<port>\\d+))?(?<params>[^?]*)(?<headers>.*)$",[{capture,[scheme,user,pwd,host,port,params,headers],list}]) of
 		{match, [Scheme,User,Pwd,Host,Port,Params,Headers]} ->
-			_Pwd = if
-				length(Pwd) == 0 -> undefined;
-				true             -> Pwd
-			end,
-
-			#uri{scheme=Scheme,user=User,password=_Pwd,host=Host,port=Port,
+			#uri{scheme=Scheme,user=undefined(User),password=undefined(Pwd),host=Host,port=Port,
 				params=params(Params),
 				headers=headers(Headers)
 			};
@@ -56,10 +58,12 @@ headers(_) ->
 %%
 %% Encode URI
 %%
-password(undefined) ->
+userinfo(undefined,undefined) ->
 	[];
-password(P) when is_list(P) ->
-	":"++P.
+userinfo(U,undefined) ->
+	U++"@";
+userinfo(U,P) ->
+	lists:flatten([U,":",P,"@"]).
 
 port(undefined) ->
 	[];
@@ -83,7 +87,7 @@ format(headers,V) ->
 
 encode(#uri{scheme=S,user=U,password=P,host=H,port=Pt,params=Pm,headers=Hd}) ->
 	lists:concat([
-		S,":",U,password(P),"@",H,port(Pt),
+		S,":",userinfo(U,P),H,port(Pt),
 		format(params,Pm),
 		format(headers,Hd)
 	]).
