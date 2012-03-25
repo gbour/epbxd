@@ -53,10 +53,10 @@
 
 %% Via header
 -record(via, {
-	transport,
-	host,
-	port,
-	params
+		transport,
+		host,
+		port,
+		params
 }).
 
 %% SIP URI
@@ -70,3 +70,23 @@
 		headers
 }).
 
+%% Transaction
+-record(transaction, {
+	key,
+
+	% source
+	s_cid,
+	s_fromtag,
+	s_totag,
+	s_state,
+	s_msg,
+	s_uri,
+
+	% destination
+	d_cid,
+	d_fromtag,
+	d_totag,
+	d_state,
+	d_msg,
+	d_uri
+}).
