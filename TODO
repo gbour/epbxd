@@ -6,3 +6,17 @@ SIP decoding:
 	. header key case
 	. multiple headers (Via)
 	. headers short key form (f -> From)
+	. do not fail if a header is not found
+	  (must match if all required headers are defined, else reject
+message)
+	    initial call: sips:-processor/2-fun-1-/0
+	    pid: <0.94.0>
+		  registered_name: []
+	    exception error: bad argument
+		    in function  dict:fetch/2
+			     called as dict:fetch("User-agent",...)
+	    in call from sips:handle/2
+      in call from lists:foreach/2
+
+	. accept following address format (is valid?): 
+			Contact: sip:101@localhost:47915
