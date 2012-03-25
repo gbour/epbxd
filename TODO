@@ -18,5 +18,11 @@ message)
 	    in call from sips:handle/2
       in call from lists:foreach/2
 
-	. accept following address format (is valid?): 
-			Contact: sip:101@localhost:47915
+Dialplan/Application
+	. erlang dialplan: dynamically compiled code
+	. per-protocol applications: app:dial() -> sips:dial()
+                                          -> sccp:dial()
+	  depend on underlying peer used-protocol
+
+Admin Console
+	. ws/json interface
