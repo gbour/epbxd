@@ -23,11 +23,23 @@
 %%    From: Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8
 %%
 decode("From", Value) ->
-	case re:run(Value, "^\s*(\"(?<display>[^\"]+)\"\s+)?<(?<uri>[^>]+)>\s*(?<params>.*)$",
-		[{capture,[display,uri,params],list}]) of
+	case
+		re:run(Value,"^\\s*
+			(\"(?<display>[^\"]+)\"\\s+<)?
+				(?(<display>)|(?<lt><)?)
+					(?<uri>[^<>\"\s]+)
+				(?(<display>)>|(?(<lt>)>))
+					\\s*(?<params>;.*)?$",
+			[extended, {capture,[display,uri,params],list}]) of
 
 		{match, [D,U,P]} ->
-			#address{displayname=D,uri=uri:decode(U),params=uri:params(P)};
+			case uri:decode(U) of
+				invalid ->
+					invalid;
+				Uri     ->
+					#address{displayname=D,uri=Uri,params=uri:params(P)}
+			end;
+
 		_ ->
 			invalid
 	end;

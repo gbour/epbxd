@@ -6,11 +6,23 @@
 
 decode_test() ->
 	%% From
-	?assertEqual(header:decode("From", "foobar"), invalid),
+	?assertEqual(header:decode("From", "foobar")                 , invalid),
+	?assertEqual(header:decode("From", "<sip:user@host")         , invalid),
+	?assertEqual(header:decode("From", "sip:user@host>")         , invalid),
+	?assertEqual(header:decode("From", "\"Doe\" sip:user@host")  , invalid),
+	?assertEqual(header:decode("From", "\"Doe\" <sip:user@host") , invalid),
+	?assertEqual(header:decode("From", "\"Doe\" sip:user@host>") , invalid),
+
+
 	?assertEqual(header:decode("From"," \"101\" <sip:101@192.168.0.194:5060> ;tag=e2dafe4bb3"),
 		{address,"101",{uri,"sip","101",undefined,"192.168.0.194","5060",[],[]},[{"tag","e2dafe4bb3"}]}),
 	?assertEqual(header:decode("From"," <sip:101@192.168.0.194>"),
 		{address,[],{uri,"sip","101",undefined,"192.168.0.194",[],[],[]},[]}),
+
+	?assertEqual(header:decode("From", "sip:101@192.168.0.1"),
+		{address,[],{uri,"sip","101",undefined,"192.168.0.1",[],[],[]},[]}),
+	?assertEqual(header:decode("From", "sip:101@192.168.0.1;transport=udp"),
+		{address,[],{uri,"sip","101",undefined,"192.168.0.1",[],[{"transport","udp"}],[]},[]}),
 
 	%% To
 	?assertEqual(header:decode("To"," \"101\" <sip:101@192.168.0.194:5060>"),
