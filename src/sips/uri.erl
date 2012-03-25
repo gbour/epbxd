@@ -31,7 +31,7 @@ decode(Uri) ->
 				headers=headers(Headers)
 			};
 		_ ->
-			error
+			invalid
 	end.
 
 params(Params) ->

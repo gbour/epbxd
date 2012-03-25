@@ -15,6 +15,9 @@ headers_test() ->
 	?assertEqual(uri:headers("")        , []).
 
 decode_test() ->
+	% not an uri
+	?assertEqual(uri:decode("foobar"), invalid),
+
 	% Request-URI (no user)
 	?assertEqual(uri:decode("sip:biloxi.com"), 
 			{uri, "sip",undefined,undefined,"biloxi.com",[],[],[]}),
