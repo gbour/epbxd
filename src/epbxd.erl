@@ -16,11 +16,20 @@ start(normal, Args) ->
 	mnesia:create_schema([node()]),
 	mnesia:start(),
 
+	% start webservice
+	application:start(cowboy),
+	Dispatch = [
+		{'_', [{'_', webservice, []}]}
+	],
+	cowboy:start_listener(http, 10,
+		cowboy_tcp_transport, [{port, 8080}],
+		cowboy_http_protocol, [{dispatch, Dispatch}]
+	),
+
 	%% NOTE: cannot debug until logging is initialized
 	?DEBUG("app:start",[]),
 	application:start(sasl),
 	epbxd_sup:start_link();
-
 
 start(Type,_) ->
 	io:format("start2:"++Type),

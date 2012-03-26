@@ -2,6 +2,9 @@
 CC      = erlc
 BEAMDIR = $(shell pwd)/ebin
 EFLAGS  = -I $(shell pwd)/src
+EFLAGS += -I $(shell pwd)/../resources/jsonerl/src
+EFLAGS += -I $(shell pwd)/../resources/cowboy/include
+EFLAGS += -I /usr/lib/erlang/lib
 
 ifeq ($(MAKECMDGOALS),test)
 	EFLAGS += -Ddebug
