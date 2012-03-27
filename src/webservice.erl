@@ -1,11 +1,12 @@
 
 -module(webservice).
--export([init/3, handle/2, terminate/2,sip_users/2,sip_registrations/2]).
+-export([init/3, handle/2,terminate/2,sip_users/2,sip_registrations/2,ejabberd_hosts/2]).
 
 -include("http.hrl").
 -include("jsonerl.hrl").
 -include("stdlib-1.18/include/qlc.hrl").
 -include("sips/sips.hrl").
+-include("utils.hrl").
 
 init({tcp, http}, Req, Opts) ->
 	{ok, Req, undefined_state}.
@@ -64,3 +65,6 @@ sip_registrations('GET',Body) ->
 			?record_to_struct(registration, R#registration{name=list_to_atom(R#registration.name)})
 		end, Res
 	).
+
+ejabberd_hosts('GET',_) ->
+	lists:map(fun(X) -> list_to_atom(X) end, rpc:call('ejabberd@localhost', 'ejabberd_hosts', registered, [])).

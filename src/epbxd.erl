@@ -7,10 +7,16 @@
 -include("utils.hrl").
 -include("sips/sips.hrl").
 
+-import(webservice).
+
 start(normal, Args) ->
 	config:load(get_config_file()),
 	logging:init(config:get(logfile)),
 	%%logging:loglevel(config:get("loglevel")),
+
+	% Set node cookie, Try to connect to local ejabberd
+	erlang:set_cookie(node(), get_cookie()),
+	ejabberd_connect(),
 
 	%%TODO: SHOULD create schema/table only if not exists
 	mnesia:create_schema([node()]),
@@ -46,3 +52,26 @@ get_config_file() ->
 		undefined  ->
 			empty
 	end.
+
+get_cookie() ->
+	C = config:get(cookie),
+
+	if
+		is_atom(C) -> C;
+		is_list(C) -> list_to_atom(C);
+		true       -> undefined
+	end.
+
+ejabberd_connect() ->
+	Node = 'ejabberd@localhost',
+
+	case net_adm:ping(Node) of
+		pong ->
+			case rpc:call(Node, 'ejabberd_ctl', process, [["status"]]) of
+				{badrpc,_} -> fail
+				_          ->	?INFO("Ejabberd is up and available~n",[]),	ok;
+			end;
+
+		_    -> fail
+	end.
+
