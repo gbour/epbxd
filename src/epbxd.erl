@@ -68,8 +68,8 @@ ejabberd_connect() ->
 	case net_adm:ping(Node) of
 		pong ->
 			case rpc:call(Node, 'ejabberd_ctl', process, [["status"]]) of
-				{badrpc,_} -> fail
-				_          ->	?INFO("Ejabberd is up and available~n",[]),	ok;
+				{badrpc,_} -> fail;
+				_          ->	?INFO("Ejabberd is up and available~n",[]),	ok
 			end;
 
 		_    -> fail

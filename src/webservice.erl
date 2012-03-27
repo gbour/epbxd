@@ -1,6 +1,7 @@
 
 -module(webservice).
--export([init/3, handle/2,terminate/2,sip_users/2,sip_registrations/2,ejabberd_hosts/2]).
+-export([init/3,
+		handle/2,terminate/2,sip_users/2,sip_registrations/2,ejabberd_hosts/2,ejabberd_users/2]).
 
 -include("http.hrl").
 -include("jsonerl.hrl").
@@ -68,3 +69,7 @@ sip_registrations('GET',Body) ->
 
 ejabberd_hosts('GET',_) ->
 	lists:map(fun(X) -> list_to_atom(X) end, rpc:call('ejabberd@localhost', 'ejabberd_hosts', registered, [])).
+
+ejabberd_users('GET',_) ->
+	[ [list_to_binary(U),list_to_binary(H)] || 
+		{U,H} <- rpc:call('ejabberd@localhost', 'mod_epbxd', info,	[users]) ].
