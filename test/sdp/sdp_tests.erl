@@ -21,7 +21,7 @@ decode_asterisk_test() ->
 		)),
 		{sdp_session,0,<<"session">>,{10,20},
 			{sdp_origin,<<"root">>,19113,19113,'IN','IP4',<<"10.0.0.1">>},
-			{sdp_connection,'IN','IP4',<<"10.0.0.1">>,0},
+			{sdp_connection,'IN','IP4',<<"10.0.0.1">>,undefined},
 			[{sdp_media,audio,'RTP/AVP',14730,
 				[{'PCMU',[0,8000]},{'PCMA',[8,8000]}],
 				undefined,20,sendrecv,[]
@@ -50,7 +50,7 @@ decode_thomson_test() ->
 		)),
 		{sdp_session,0,<<"-">>,{0,0},
 			{sdp_origin,<<"101">>,6589654,6589654,'IN','IP4',<<"10.0.0.12">>},
-			{sdp_connection,'IN','IP4',<<"10.0.0.12">>,0},
+			{sdp_connection,'IN','IP4',<<"10.0.0.12">>,undefined},
 			[{sdp_media,audio,'RTP/AVP',41000,
 				[{'PCMA',[8,8000]},{'PCMU',[0,8000]},{'G729',[18,8000]},{'G723',[4,8000]}],
 				undefined,20,sendrecv,[]
@@ -93,7 +93,7 @@ decode_aastra_test() ->
 		)),
 		{sdp_session,0,<<"SIP Call">>,{0,0},
 			{sdp_origin    ,<<"MxSIP">>,0,1,'IN','IP4',<<"10.0.0.11">>},
-			{sdp_connection,'IN','IP4',<<"10.0.0.11">>,0},
+			{sdp_connection,'IN','IP4',<<"10.0.0.11">>,undefined},
 			[{sdp_media    ,audio,'RTP/AVP',3000,
 					[
 						{'PCMU'   ,[  0, 8000]}, {'G729'   ,[ 18, 8000]} ,{'BV16'           ,[106,  8000]},
@@ -109,4 +109,112 @@ decode_aastra_test() ->
 
 	ok.
 
+
+encode_media_test() ->
+	?assertEqual(sdp:encode(#sdp_media{
+			port    = 14730,
+			rtpmap  = [{'PCMU',[0,8000]}, {'PCMA',[8,8000]}],
+			ptime   = 20,
+			mode    = sendrecv
+		}),
+
+		<<
+			"m=audio 14730 RTP/AVP 0 8\r\n"
+			"a=rtpmap:0 PCMU/8000\r\n"
+			"a=rtpmap:8 PCMA/8000\r\n"
+			"a=ptime:20\r\n"
+			"a=sendrecv\r\n"
+		>>
+	).
+
+encode_media_rtcp_test() ->
+	?assertEqual(sdp:encode(#sdp_media{
+			rtcp = #sdp_connection{address= <<"10.0.0.11">>, port=3001}
+		}),
+
+		<<
+			"m=audio 0 RTP/AVP\r\n"
+			"a=ptime:20\r\n"
+			"a=rtcp:3001 IN IP4 10.0.0.11\r\n"
+			"a=sendrecv\r\n"
+		>>
+	).
+
+
+encode_asterisk_test() ->
+	?assertEqual(sdp:encode(#sdp_session{
+			name        = <<"session">>,
+			time        = {10, 20},
+			origin      = #sdp_origin{
+				username  = <<"root">>,
+				ssid      = 19113,
+				ssversion = 19113,
+				address   = <<"10.0.0.1">>
+			},
+			connection  = #sdp_connection{address = <<"10.0.0.1">>},
+			medias      = [
+				#sdp_media{
+					port    = 14730,
+					rtpmap  = [{'PCMU',[0,8000]}, {'PCMA',[8,8000]}],
+					ptime   = 20,
+					mode    = sendrecv
+			}]
+		}),
+
+		<<
+			"v=0\r\n"
+			"o=root 19113 19113 IN IP4 10.0.0.1\r\n"
+			"s=session\r\n"
+			"c=IN IP4 10.0.0.1\r\n"
+			"t=10 20\r\n"
+			"m=audio 14730 RTP/AVP 0 8\r\n"
+			"a=rtpmap:0 PCMU/8000\r\n"
+			"a=rtpmap:8 PCMA/8000\r\n"
+			"a=ptime:20\r\n"
+			"a=sendrecv\r\n"
+			"\r\n"
+		>>
+	),
+
+	ok.
+
+encode_thomson_test() ->
+	% Thomson ST2030
+	?assertEqual(sdp:encode(#sdp_session{
+			origin=#sdp_origin{
+				username= <<"101">>,
+				ssid=6589654,
+				ssversion=6589654,
+				address= <<"10.0.0.12">>
+			},
+			connection=#sdp_connection{address= <<"10.0.0.12">>},
+			medias=[
+				#sdp_media{port=41000,
+					rtpmap=[{'PCMA',[8,8000]},{'PCMU',[0,8000]},{'G729',[18,8000]},{'G723',[4,8000]}],
+					rtcp=#sdp_connection{address= <<"10.0.0.11">>, port=3001}
+				}]
+		}
+		),
+
+		<<
+			"v=0\r\n"
+			"o=101 6589654 6589654 IN IP4 10.0.0.12\r\n"
+			"s=-\r\n"
+			"c=IN IP4 10.0.0.12\r\n"
+			"t=0 0\r\n"
+			"m=audio 41000 RTP/AVP 8 0 18 4\r\n"
+			"a=rtpmap:8 PCMA/8000\r\n"
+			"a=rtpmap:0 PCMU/8000\r\n"
+			"a=rtpmap:18 G729/8000\r\n"
+% NOT SUPPORTED YET
+%			"a=fmtp:18 annexb=no\r\n"
+			"a=rtpmap:4 G723/8000\r\n"
+			"a=ptime:20\r\n"
+			"a=rtcp:3001 IN IP4 10.0.0.11\r\n"
+			"a=sendrecv\r\n"
+			"\r\n"
+		>>
+	),
+
+	ok.
 

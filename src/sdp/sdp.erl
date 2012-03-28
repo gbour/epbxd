@@ -17,11 +17,12 @@
 -module(sdp).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([rtpmap/1,decode/1]).
+-export([rtpmap/1,decode/1,encode/1]).
 %-ifdef(debug).
 %	-export([decode_/3, binary_to_addrtype/1, binary_to_media/1, binary_to_proto/1]).
 %-endif.
 
+-include("utils.hrl").
 -include("sdp.hrl").
 
 -spec rtpmap(sdp_encoding()) -> sdp_rtpmap().
@@ -195,4 +196,75 @@ map_payloads([Payload | Tail], DynMap) ->
 map_payloads([], _) ->
 	[].
 
+
+%%%
+%%% Session encoding
+%%%
+-spec encode(sdp_session() | sdp_origin() | sdp_connection() | sdp_media()) -> binary().
+encode(#sdp_session{version=V,name=N,time={S,E},origin=O,connection=C,medias=Medias}) ->
+	<<
+		"v=", (?I2B(V))/binary, "\r\n",
+		"o=", (encode(O))/binary, "\r\n",
+		"s=", N/binary, "\r\n",
+		"c=", (encode(C))/binary, "\r\n",
+		"t=", (?I2B(S))/binary, $\s, (?I2B(E))/binary, "\r\n",
+
+		% medias
+		(?L2B([ encode(M) || M <- Medias]))/binary,
+
+		"\r\n"
+	>>;
+
+encode(#sdp_origin{username=U, ssid=Id, ssversion=Version, nettype=NetType, addrtype=AddrType, address=Addr}) ->
+	<<
+		U/binary               , $\s,
+		(?I2B(Id))/binary      , $\s,
+		(?I2B(Version))/binary , $\s,
+		(?A2B(NetType))/binary , $\s,
+		(?A2B(AddrType))/binary, $\s,
+		Addr/binary
+	>>;
+
+encode(#sdp_connection{nettype=NetType, addrtype=AddrType, address=Addr, port=Port}) ->
+	<<
+		(encode(port, Port))/binary,
+
+		(?A2B(NetType))/binary , $\s,
+		(?A2B(AddrType))/binary, $\s,
+		Addr/binary
+	>>;
+
+encode(#sdp_media{type=T, proto=P, port=Port, rtpmap=Map, rtcp=Rtcp, ptime=Pt, mode=Mode, attrs=Attrs}) ->
+	Rtpmap2Bin = fun(M) ->
+		{Enc, [Type, Clock]} = M,
+
+		{
+			<<$\s, (?I2B(Type))/binary>>,
+			<<"a=rtpmap:", (?I2B(Type))/binary, $\s, (?A2B(Enc))/binary, $/, (?I2B(Clock))/binary, "\r\n">>
+		}
+	end,
+
+	{BinPayloads, BinMaps} = lists:unzip(lists:map(Rtpmap2Bin, Map)),
+
+
+	<<"m=", (?A2B(T))/binary, $\s, (?I2B(Port))/binary, $\s, (?A2B(P))/binary, 
+		% payload numbers
+		(?L2B(BinPayloads))/binary   , "\r\n",
+
+		% rtp mapping
+		(?L2B(BinMaps))/binary       ,
+
+		%
+		"a=ptime:",(?I2B(Pt))/binary , "\r\n",
+		(encode(rtcp, Rtcp))/binary,
+		"a=",(?A2B(Mode))/binary     , "\r\n"
+	>>.
+
+-spec encode(rtcp, undefined | sdp_connection()) -> binary().
+encode(_, undefined)                 ->
+	<<>>;
+encode(rtcp, Rtcp=#sdp_connection{}) ->
+	<<"a=rtcp:", (encode(Rtcp))/binary, "\r\n">>;
+encode(port, Port)                   ->
+	<<(?I2B(Port))/binary, $\s>>.
 

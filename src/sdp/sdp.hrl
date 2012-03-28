@@ -35,7 +35,7 @@
 	address  = <<>>          :: binary(),
 
 	% used for rtcp media attribute only
-	port     = 0             :: integer()
+	port     = undefined     :: undefined | integer()
 }).
 -type sdp_connection()     :: #sdp_connection{}.
 
@@ -50,6 +50,7 @@
 
 	attrs      = []    :: list()
 }).
+-type sdp_media()        :: #sdp_media{}.
 
 -record(sdp_session, {
 	version    = 0         :: integer(),
