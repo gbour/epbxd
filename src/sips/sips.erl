@@ -12,6 +12,7 @@
 
 -include("sips.hrl").
 -include("dialplan.hrl").
+-include("sdp/sdp.hrl").
 -include("utils.hrl").
 
 -define(TCP_OPTIONS,[list, {packet,0},{active,false},{reuseaddr,true}]).
@@ -221,25 +222,32 @@ headers_decode(header, Message, [], Rest) ->
 %% Encode SIP message
 %%
 msgencode(Message) ->
+	io:format("~p",[Message]),
 	msgencode(start, Message).
-msgencode(start, Message = #message{version=V,type=request,method=M,uri=U,headers=H}) ->
+msgencode(start, #message{version=V,type=request,method=M,uri=U,headers=H,content=C}) ->
 	io:format("~p",[H]),
 	string:join(
 		lists:append([
 			[atom_to_list(M)," ",uri:encode(U)," SIP/",V,"\r\n"],
 			lists:map(fun({X,Y}) -> header:encode(X,Y)++"\r\n" end, H),
-			["\r\n"]
+			["\r\n"],
+			[msgencode(payload, C)]
 		]),
 	"");
-msgencode(start, Message = #message{version=V, type=response, status=S, reason=R, headers=H}) ->
+msgencode(start, #message{version=V,type=response,status=S,reason=R,headers=H,content=C}) ->
 	string:join(
 		lists:append([
 			["SIP/",V," ",integer_to_list(S)," ",R,"\r\n"],
 			lists:map(fun({X,Y}) -> header:encode(X,Y)++"\r\n" end, H),
-			["\r\n"]
+			["\r\n"],
+			[msgencode(payload, C)]
 		]),
 	"");
-msgencode(start, M) ->
+msgencode(payload, undefined) ->
+	"";
+msgencode(payload, P) when is_binary(P) ->
+	erlang:binary_to_list(P);
+msgencode(_,_) ->
 	fail.
 %%#message(type=response,type=response,status=200,reason=Trying,
 
@@ -433,6 +441,21 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 			% sending OK to the peer			
 			To = lists:nth(1, dict:fetch("To"  , T#transaction.s_msg#message.headers)),
 
+			Content = sdp:encode(#sdp_session{
+				origin=#sdp_origin{
+					username= <<"epbxd">>,
+					ssid=0,
+					ssversion=0,
+					address= <<"127.0.0.1">>
+				},
+				connection = #sdp_connection{address= <<"127.0.0.1">>},
+				medias = [#sdp_media{
+					port=9996,
+					rtpmap=[{'PCMA', [8,8000]}, {'PCMU', [0,8000]}],
+					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=9997}
+				}]
+			}),
+
 			send(T#transaction.s_uri, response(ok, #message{
 				headers=[
 					{"Via"           , 
@@ -447,8 +470,11 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 					{"Allow"         ,"foobar"},
 					{"Contact" 			 ,
 						lists:nth(1, dict:fetch("From", T#transaction.s_msg#message.headers))},
-					{"Content-length",0}
-				]
+					{"Content-type"  , "application/sdp"},
+					{"Content-length", erlang:byte_size(Content)}
+				],
+
+				content=Content
 			})),
 
 			% sending ACK to originator
@@ -529,6 +555,21 @@ app(dial, Exten, #context{caller=C,socket=Sock,message=M}) ->
 				uri         = Endpt#registration.uri
 			},
 
+			Content = sdp:encode(#sdp_session{
+				origin=#sdp_origin{
+					username= <<"epbxd">>,
+					ssid=0,
+					ssversion=0,
+					address= <<"127.0.0.1">>
+				},
+				connection = #sdp_connection{address= <<"127.0.0.1">>},
+				medias = [#sdp_media{
+					port=9998,
+					rtpmap=[{'PCMA', [8,8000]}, {'PCMU', [0,8000]}],
+					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=9999}
+				}]
+			}),
+
 			% send INVITE to target peer
 			send(undefined, request('INVITE', #message{
 				type=request,
@@ -544,8 +585,11 @@ app(dial, Exten, #context{caller=C,socket=Sock,message=M}) ->
 					{"User-agent"    ,"epbxd"},
 					{"Allow"         ,"foobar"},
 					{"Contact" 			 ,_From},
-					{"Content-length",0}
-				]
+					{"Content-type"  , "application/sdp"},
+					{"Content-length", erlang:byte_size(Content)}
+				],
+
+				content = Content
 			})),
 
 			ok;
