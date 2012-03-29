@@ -30,10 +30,10 @@ getport(Pid) ->
 	gen_server:call(Pid, port).
 
 handle_info({udp, Socket, IP, InPortNo, Packet}, {Host, Port, LocalPort}) ->
-	?DEBUG("RTP passthrough:: {~s:~b} -> {~s:~b}~n", [IP, InPortNo, Host, Port]),
-	gen_udp:send(Socket, Host, Port, Packet),
+	?DEBUG("RTP passthrough:: {~p:~b} -> {~p:~b}~n", [IP, InPortNo, Host, Port]),
+	gen_udp:send(Socket, erlang:binary_to_list(Host), Port, Packet),
 	
-	{noreply,{Host,Port}}.
+	{noreply,{Host,Port,LocalPort}}.
 
 % query local port
 handle_call(port, _, {Host, Port, LocalPort}) ->

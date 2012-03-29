@@ -154,12 +154,13 @@ msgdecode(Mms, Stream)  ->
 		0 ->
 			{invalid, Mms};
 		P ->
-			{Status, Mn, Rest} = headers_decode(
-				start,
-				#message{},
-				string:tokens(string:substr(Stream,1,P-1), "\r\n"), 
-				string:substr(Stream,P+4)
-			),
+			{Status, Mn, Rest} = body_decode(
+				headers_decode(
+					start,
+					#message{},
+					string:tokens(string:substr(Stream,1,P-1), "\r\n"), 
+					string:substr(Stream,P+4)
+			)),
 
 			case Status of 
 				ok ->
@@ -217,6 +218,24 @@ headers_decode(header, Message, [], Rest) ->
 	end.
 				
 
+body_decode({ok, Message, Rest}) ->
+	io:format("body decode: ~p~n", [Message#message.content]),
+
+	M = case dict:find("Content-type", Message#message.headers) of
+		{ok, Value} ->
+			case hd(Value) of
+				"application/sdp" ->
+					Message#message{content = sdp:decode(binary:list_to_bin(Message#message.content))};
+
+				_                 ->
+					Message
+			end;
+
+		error       ->
+			Message
+	end,
+
+	{ok, M, Rest}.
 
 %%
 %% Encode SIP message
@@ -447,6 +466,7 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 				SDPSession#sdp_session.connection#sdp_connection.address,
 				(hd(SDPSession#sdp_session.medias))#sdp_media.port
 			}]),
+			io:format("RTP port= ~b~n", [rtps:getport(Rtps)]),
 
 			Content = sdp:encode(#sdp_session{
 				origin=#sdp_origin{
@@ -457,7 +477,7 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 				},
 				connection = #sdp_connection{address= <<"127.0.0.1">>},
 				medias = [#sdp_media{
-					port=rtps.getport(Rtps),
+					port=rtps:getport(Rtps),
 					rtpmap=[{'PCMA', [8,8000]}, {'PCMU', [0,8000]}],
 					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=0}
 				}]
@@ -564,6 +584,7 @@ app(dial, Exten, #context{caller=C,socket=Sock,message=M}) ->
 
 			% callee -> caller RTP passthrough
 			SDPSession = M#message.content,
+			io:format("sdpsession= ~p~n", [SDPSession]),
 			{ok, Rtps} = rtps:start_link([0, {
 				SDPSession#sdp_session.connection#sdp_connection.address,
 				(hd(SDPSession#sdp_session.medias))#sdp_media.port
