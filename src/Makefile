@@ -2,7 +2,7 @@
 SRC     = $(wildcard *.erl)
 #BEAMS   = $(SRC:.erl=.beam)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = sips sdp
+SUBDIRS = sips sdp rtp
 
 
 all: subdirs $(BEAMS)

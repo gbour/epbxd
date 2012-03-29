@@ -441,6 +441,13 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 			% sending OK to the peer			
 			To = lists:nth(1, dict:fetch("To"  , T#transaction.s_msg#message.headers)),
 
+			% caller -> callee RTP passthrough
+			SDPSession = M#message.content,
+			{ok, Rtps} = rtps:start_link([0, {
+				SDPSession#sdp_session.connection#sdp_connection.address,
+				(hd(SDPSession#sdp_session.medias))#sdp_media.port
+			}]),
+
 			Content = sdp:encode(#sdp_session{
 				origin=#sdp_origin{
 					username= <<"epbxd">>,
@@ -450,9 +457,9 @@ handle(M=#message{type=response,status=200,headers=H}, Sock) ->
 				},
 				connection = #sdp_connection{address= <<"127.0.0.1">>},
 				medias = [#sdp_media{
-					port=9996,
+					port=rtps.getport(Rtps),
 					rtpmap=[{'PCMA', [8,8000]}, {'PCMU', [0,8000]}],
-					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=9997}
+					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=0}
 				}]
 			}),
 
@@ -555,6 +562,14 @@ app(dial, Exten, #context{caller=C,socket=Sock,message=M}) ->
 				uri         = Endpt#registration.uri
 			},
 
+			% callee -> caller RTP passthrough
+			SDPSession = M#message.content,
+			{ok, Rtps} = rtps:start_link([0, {
+				SDPSession#sdp_session.connection#sdp_connection.address,
+				(hd(SDPSession#sdp_session.medias))#sdp_media.port
+			}]),
+
+
 			Content = sdp:encode(#sdp_session{
 				origin=#sdp_origin{
 					username= <<"epbxd">>,
@@ -564,9 +579,9 @@ app(dial, Exten, #context{caller=C,socket=Sock,message=M}) ->
 				},
 				connection = #sdp_connection{address= <<"127.0.0.1">>},
 				medias = [#sdp_media{
-					port=9998,
+					port=rtps:getport(Rtps),
 					rtpmap=[{'PCMA', [8,8000]}, {'PCMU', [0,8000]}],
-					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=9999}
+					rtcp= #sdp_connection{address= <<"127.0.0.1">>, port=0}
 				}]
 			}),
 
