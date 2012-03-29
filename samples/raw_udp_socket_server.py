@@ -12,7 +12,6 @@
 import socket, os, signal
 
 PORT = 9999
-HOST = socket.gethostbyname(socket.gethostname())
 
 count = 0; total = 0; num = 1
 def handler(signum, frame):
@@ -22,12 +21,11 @@ def handler(signum, frame):
     num += 1; total += count; count = 0
     signal.alarm(1)
 
-
 signal.signal(signal.SIGALRM, handler)
 
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind((HOST, PORT))
+s.bind(("localhost", PORT))
 
 signal.alarm(1)
 while True:
