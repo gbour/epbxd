@@ -1,7 +1,21 @@
-%% 
-%% Decode SIP headers value
+
+%%	epbxd, Erlang PBX Server
+%%	Copyright (C) 2012, Guillaume Bour <guillaume@bour.cc>
 %%
+%%	This program is free software: you can redistribute it and/or modify
+%%	it under the terms of the GNU Affero General Public License as
+%%	published by the Free Software Foundation, either version 3 of the
+%%	License, or (at your option) any later version.
 %%
+%%	This program is distributed in the hope that it will be useful,
+%%	but WITHOUT ANY WARRANTY; without even the implied warranty of
+%%	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%%	GNU Affero General Public License for more details.
+%%
+%%	You should have received a copy of the GNU Affero General Public License
+%%	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+% @doc epbxd API to encode/decode SIP headers (to/from binary stream)
 -module(epbxd_sip_header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
@@ -13,24 +27,49 @@
 %%
 %% DECODING
 %%
+%%
+
+%% @doc Decode a SIP header (already splitted)
+%%
+%% @return {Header, Value} where
+%%						Header is a normalized atom
+%%						Value  is the matching decoded value
+%%
+%% @sample
+%%		{'Content-Length', 42}      = epbxd_sip_header:decode(<<"Content-Length">>, <<"42">>).
+%%		{'Content-Length', invalid} = epbxd_sip_header:decode(<<"Content-Length">>, <<"foobar">>).
+%%
+%% TODO: implement all standard headers
+%% TODO: short header form (f -> From)
+%% TODO: emit a log info when a not-standard header is found
+%% TODO: detect unmatching headers (fROm -> From), emit warning
+%%
 -spec decode(binary(), binary()) -> tuple(atom(), any()).
 decode(Header, Value) ->
 	H = normalize_(Header),
 	{H, decode_(H, Value)}.
 
+%% @doc Normalize SIP header
+%%		. convert binary/list to atom
+%%		. convert header short-form to long-form
+-spec normalize_(binary() | atom()) -> atom().
 normalize_(Header) when is_binary(Header); is_list(Header) ->
 	utils:atom(Header);
 normalize_('f')    -> 'From';
 normalize_(Header) -> Header.
 
+%% @doc	Decode header value
 %%
-%% From, To, Contact headers
+%%	Value interpretation is specific to each header
+%%
+%% From, To, Contact
 %%    From: "Bob" <sips:bob@biloxi.com> ;tag=a48s
 %%
 %% TODO: handle other following forms
 %%    From: sip:+12125551212@phone2net.com;tag=887s
 %%    From: Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8
 %%
+-spec decode_(atom(), binary()) -> any().
 decode_('From', Value) ->
 	case
 		re:run(utils:str(Value),"^\\s*
@@ -59,7 +98,7 @@ decode_('Contact', Value) ->
 	decode_('From', Value);
 
 %%
-%% Content-Length header
+%% Content-Length
 %%    Content-Length: 1548
 %%
 decode_('Content-Length', Value) ->
@@ -115,20 +154,24 @@ decode_('Via', Value) ->
 %%
 %% Other headers
 %%   keep original value
+%%
 decode_(_, V) ->
 	V.
 
+%% @doc VIA transport: string to atom
+%%
+%% @private
+%% @sample
+%%		udp     = via_transport("UDP").
+%%		invalid = via_transport("foobar").
+%%
+-spec via_transport(string()) -> atom().
+via_transport("UDP")  -> udp;
+via_transport("TCP")  -> tcp;
+via_transport("TLS")  -> tls;
+via_transport("SCTP") -> sctp;
+via_transport(_)      -> invalid.
 
-via_transport("UDP")  ->
-	udp;
-via_transport("TCP")  ->
-	tcp;
-via_transport("TLS")  ->
-	tls;
-via_transport("SCTP") ->
-	sctp;
-via_transport(_A) ->
-	invalid.
 
 %%
 %% ENCODING HEADERS
