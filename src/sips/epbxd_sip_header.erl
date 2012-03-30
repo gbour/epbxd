@@ -2,13 +2,13 @@
 %% Decode SIP headers value
 %%
 %%
--module(header).
+-module(epbxd_sip_header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 -export([decode/2, encode/2, tag/0]).
 
 -include("utils.hrl").
--include("sips.hrl").
+-include("epbxd_sip.hrl").
 
 %%
 %% DECODING
@@ -144,21 +144,21 @@ encode("Max-forwards", V) ->
 encode("User-agent", Value) ->
 	encode("User-Agent", Value);
 
-encode("Via", #via{transport=T,host=H,port=undefined,params=P}) ->
+encode("Via", #sip_via{transport=T,host=H,port=undefined,params=P}) ->
 	lists:concat([
 		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,uri:format(params,P)
 	]);
-encode("Via", #via{transport=T,host=H,port=Pt,params=P}) ->
+encode("Via", #sip_via{transport=T,host=H,port=Pt,params=P}) ->
 	lists:concat([
 		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,":",Pt,uri:format(params,P)
 	]);
 
-encode(Header, #address{displayname=undefined,uri=U,params=P}) when
+encode(Header, #sip_address{displayname=undefined,uri=U,params=P}) when
 		Header =:= "From";
 		Header =:= "To";
 		Header =:= "Contact" ->
 	lists:concat([Header,": <",uri:encode(U),">",uri:format(params,P)]);
-encode(Header, #address{displayname=D,uri=U,params=P}) when
+encode(Header, #sip_address{displayname=D,uri=U,params=P}) when
 		Header =:= "From";
 		Header =:= "To";
 		Header =:= "Contact" ->

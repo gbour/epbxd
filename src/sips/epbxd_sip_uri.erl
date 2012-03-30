@@ -2,7 +2,7 @@
 %% Decode SIP headers value
 %%
 %%
--module(uri).
+-module(epbxd_sip_uri).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 -export([decode/1,params/1,encode/1,format/2]).
@@ -11,7 +11,7 @@
 -endif.
 
 -include("utils.hrl").
--include("sips.hrl").
+-include("epbxd_sip.hrl").
 
 %% TODO: @host is facultative (see tel: URI)
 %% TODO: cast port to integer type

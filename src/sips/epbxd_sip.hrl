@@ -46,14 +46,14 @@
 }).
 
 %% To, From, Contact header
--record(address, {
+-record(sip_address, {
 		displayname,
 		uri,
-		params
+		params      = []
 }).
 
 %% Via header
--record(via, {
+-record(sip_via, {
 		transport,
 		host,
 		port,
@@ -61,7 +61,7 @@
 }).
 
 %% SIP URI
--record(uri, {
+-record(sip_uri, {
 		scheme,               %% sip, sips, tel, ...
 		user,
 		password,
