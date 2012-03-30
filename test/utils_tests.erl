@@ -1,0 +1,19 @@
+
+-module(utils_tests).
+-include_lib("eunit/include/eunit.hrl").
+
+title_test() ->
+	?assertEqual(<<"Foobar">>, utils:title(<<"foobar">>)),
+	?assertEqual(<<"Foobar">>, utils:title(<<"FOOBAR">>)),
+	?assertEqual(<<"A">>     , utils:title(<<"a">>)),
+	ok.
+
+int_test() ->
+	?assertEqual(42    , utils:int(<<"42">>)),
+	?assertError(badarg, utils:int(<<"foobar">>)),
+	ok.
+
+atom_test() ->
+	?assertEqual(foobar, utils:atom(<<"foobar">>)),
+	ok.
+
