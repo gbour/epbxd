@@ -67,8 +67,8 @@
 		password,
 		host,
 		port,
-		params,
-		headers
+		params  = [],
+		headers = []
 }).
 
 %% Transaction
