@@ -13,6 +13,15 @@
 %%
 %% DECODING
 %%
+-spec decode(binary(), binary()) -> tuple(atom(), any()).
+decode(Header, Value) ->
+	H = normalize_(Header),
+	{H, decode_(H, Value)}.
+
+normalize_(Header) when is_binary(Header); is_list(Header) ->
+	utils:atom(Header);
+normalize_('f')    -> 'From';
+normalize_(Header) -> Header.
 
 %%
 %% From, To, Contact headers
@@ -22,9 +31,9 @@
 %%    From: sip:+12125551212@phone2net.com;tag=887s
 %%    From: Anonymous <sip:c8oqz84zk7z@privacy.org>;tag=hyh8
 %%
-decode("From", Value) ->
+decode_('From', Value) ->
 	case
-		re:run(Value,"^\\s*
+		re:run(utils:str(Value),"^\\s*
 			(\"(?<display>[^\"]+)\"\\s+<)?
 				(?(<display>)|(?<lt><)?)
 					(?<uri>[^<>\"\s]+)
@@ -33,36 +42,37 @@ decode("From", Value) ->
 			[extended, {capture,[display,uri,params],list}]) of
 
 		{match, [D,U,P]} ->
-			case uri:decode(U) of
-				invalid ->
+			case epbxd_sip_uri:decode(U) of
+				invalid ->		
 					invalid;
 				Uri     ->
-					#address{displayname=D,uri=Uri,params=uri:params(P)}
+					#sip_address{displayname=D,uri=Uri,params=epbxd_sip_uri:params(P)}
 			end;
 
 		_ ->
 			invalid
 	end;
-decode("To", Value) ->
-	decode("From", Value);
-decode("Contact", Value) ->
-	decode("From", Value);
+
+decode_('To', Value) ->
+	decode_('From', Value);
+decode_('Contact', Value) ->
+	decode_('From', Value);
 
 %%
 %% Content-Length header
 %%    Content-Length: 1548
 %%
-decode("Content-length", Value) ->
-	decode("Max-forwards", Value);
+decode_('Content-Length', Value) ->
+	decode_('Max-Forwards', Value);
 
 %%
 %% CSeq header
 %%		CSeq: 100 REGISTER
 %%
-decode("Cseq", Value) ->
+decode_('CSeq', Value) ->
 	try
-		[Number, Method] = string:tokens(Value, " "),
-		{list_to_integer(Number), Method}
+		[Number, Method] = binstr:split(Value, <<" ">>, 2),
+		{utils:int(Number), Method}
 	of
 		Ret   -> Ret
 	catch
@@ -73,9 +83,9 @@ decode("Cseq", Value) ->
 %% Max-Forwards header
 %%    Max-Forwards: 70
 %%
-decode("Max-forwards", Value) ->
+decode_('Max-Forwards', Value) ->
 	try
-		list_to_integer(Value)
+		utils:int(Value)
 	of
 		Ret -> Ret
 	catch
@@ -86,29 +96,26 @@ decode("Max-forwards", Value) ->
 %% Via
 %%		Via: SIP/2.0/UDP 192.168.0.187:5069;branch=z9hG4bKddnebypp
 %%
-decode("Via", Value) ->
-	case re:run(Value, "^\s*SIP/2.0/(?<transport>[^\s]+)\s+(?<host>[^;:\s]+)(:(?<port>\\d+))?(?<params>.*)$",
+decode_('Via', Value) ->
+	case re:run(utils:str(Value),
+		"^\s*SIP/2.0/(?<transport>[^\s]+)\s+(?<host>[^;:\s]+)(:(?<port>\\d+))?(?<params>.*)$",
 		[{capture,[transport,host,port,params],list}]) of
 
 		{match, [T,H,Pt,P]} ->
 			Pt_ = if 
 				Pt == [] -> undefined;
-				true     -> list_to_integer(Pt)
+				true     -> utils:int(Pt)
 			end,
 
-			#via{transport=via_transport(T),host=H,port=Pt_,params=uri:params(P)};
+			#sip_via{transport=via_transport(T),host=H,port=Pt_,params=epbxd_sip_uri:params(P)};
 		_ ->
 			invalid
 	end;
 
-%%decode("CSeq", Value) ->
-%%	[Number, Method] = string:tokens(Value, " "),
-%%	{list_to_integer(Number), Method};
-
 %%
 %% Other headers
 %%   keep original value
-decode(_,V) ->
+decode_(_, V) ->
 	V.
 
 
