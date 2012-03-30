@@ -263,8 +263,6 @@ test_multi_x_partial() ->
 				"v=0">>
 	)).
 
-%					,{"x messages"         , test_multi_x()}
-%					,{"x partial messages" , test_multi_x_partial()}
 
 decode_test_() ->
 	{setup, local,
@@ -282,17 +280,15 @@ decode_test_() ->
 					true                    -> V
 				end,
 
-				%io:format(user,"header: ~p:~p~n", [K2,V2]),
 				{K2, V2}
 			end)
-
 		end,
-		fun(Args) ->
+		fun(_) ->
 			meck:unload(uri),
 			meck:unload(epbxd_sip_header)
 		end,
 		% tests
-		fun(Args) ->
+		fun(_) ->
 			[
  				 {"empty message"       , test_empty_message()}
 				,{"invalid headers"     , test_invalid_headers()}
@@ -301,7 +297,7 @@ decode_test_() ->
 				,{"no content-length"   , test_no_content_length()}
 				,{"zero content-length" , test_zero_content_length()}
 				,{"content-length > 0"  , test_positive_content_length()}
-				,{"content-length == remaining"  , test_exact_content_length()}
+				,{"content-length == remaining", test_exact_content_length()}
 
 				,{"empty stream"       , test_multi_empty()}
 				,{"1 complete message" , test_multi_1_message()}
