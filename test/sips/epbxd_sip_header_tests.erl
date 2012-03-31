@@ -9,7 +9,7 @@
 
 -include("sips/epbxd_sip.hrl").
 
-test_encode_from_header() ->
+test_decode_from_header() ->
 	[
 		?_assertEqual({'From', #sip_address{displayname=[], uri="uri", params=[]}},
 			epbxd_sip_header:decode(<<"From">>, <<"uri">>)),
@@ -19,7 +19,7 @@ test_encode_from_header() ->
 			epbxd_sip_header:decode(<<"From">>, <<"displayname uri">>))
 	].
 
-test_encode_to_header() ->
+test_decode_to_header() ->
 	[
 		?_assertEqual({'To', #sip_address{displayname=[], uri="uri", params=[]}},
 			epbxd_sip_header:decode(<<"To">>, <<"uri">>)),
@@ -27,7 +27,7 @@ test_encode_to_header() ->
 			epbxd_sip_header:decode(<<"To">>, <<"displayname uri">>))
 	].
 
-test_encode_contact_header() ->
+test_decode_contact_header() ->
 	[
 		?_assertEqual({'Contact', #sip_address{displayname=[], uri="uri", params=[]}},
 			epbxd_sip_header:decode(<<"Contact">>, <<"uri">>)),
@@ -35,7 +35,7 @@ test_encode_contact_header() ->
 			epbxd_sip_header:decode(<<"Contact">>, <<"displayname uri">>))
 	].
 
-test_encode_content_length_header() ->
+test_decode_content_length_header() ->
 	[
 		?_assertEqual({'Content-Length', 754},
 			epbxd_sip_header:decode(<<"Content-Length">>, <<"754">>)),
@@ -43,7 +43,7 @@ test_encode_content_length_header() ->
 			epbxd_sip_header:decode(<<"Content-Length">>, <<"foobar">>))
 	].
 
-test_encode_cseq_header() ->
+test_decode_cseq_header() ->
 	[
 		?_assertEqual({'CSeq', {100, <<"INVITE">>}},
 			epbxd_sip_header:decode(<<"CSeq">>, <<"100 INVITE">>)),
@@ -53,7 +53,7 @@ test_encode_cseq_header() ->
 			epbxd_sip_header:decode(<<"CSeq">>, <<"foobar">>))
 	].
 
-test_encode_max_forwards_header() ->
+test_decode_max_forwards_header() ->
 	[
 		?_assertEqual({'Max-Forwards', 77},
 			epbxd_sip_header:decode(<<"Max-Forwards">>, <<"77">>)),
@@ -61,7 +61,7 @@ test_encode_max_forwards_header() ->
 			epbxd_sip_header:decode(<<"Max-Forwards">>, <<"foobar">>))
 	].
 
-test_encode_via_header() ->
+test_decode_via_header() ->
 	[
 		?_assertEqual({'Via',	#sip_via{transport=tls,host="host",port=9999,params=";params"}},
 			epbxd_sip_header:decode(<<"Via">>, <<"SIP/2.0/TLS host:9999;params">>)),
@@ -71,7 +71,7 @@ test_encode_via_header() ->
 			epbxd_sip_header:decode(<<"Via">>, <<"foobar">>))
 	].
 
-test_encode_custom_header() ->
+test_decode_custom_header() ->
 	% any custom header is left as-is
 	[
 		?_assertEqual({'Custom', <<"foobar">>},
@@ -103,14 +103,14 @@ headers_test_() ->
 		% funs
 		fun(_) ->
 			[
-				 {"encoding 'From' header"           , test_encode_from_header()}
-				,{"encoding 'To' header"             , test_encode_to_header()}
-				,{"encoding 'Contact' header"        , test_encode_contact_header()}
-				,{"encoding 'Content-Length' header" , test_encode_content_length_header()}
-				,{"encoding 'CSeq' header"           , test_encode_cseq_header()}
-				,{"encoding 'Max-Forwards' header"   , test_encode_max_forwards_header()}
-				,{"encoding 'Via' header"            , test_encode_via_header()}
-				,{"encoding 'Custom' header"         , test_encode_custom_header()}
+				 {"encoding 'From' header"           , test_decode_from_header()}
+				,{"encoding 'To' header"             , test_decode_to_header()}
+				,{"encoding 'Contact' header"        , test_decode_contact_header()}
+				,{"encoding 'Content-Length' header" , test_decode_content_length_header()}
+				,{"encoding 'CSeq' header"           , test_decode_cseq_header()}
+				,{"encoding 'Max-Forwards' header"   , test_decode_max_forwards_header()}
+				,{"encoding 'Via' header"            , test_decode_via_header()}
+				,{"encoding 'Custom' header"         , test_decode_custom_header()}
 
 				,{"*tag* generation"                 , test_tag_generation()}
 			]
