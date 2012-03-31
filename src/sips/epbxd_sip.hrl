@@ -57,7 +57,7 @@
 		transport,
 		host,
 		port,
-		params
+		params = []
 }).
 
 %% SIP URI

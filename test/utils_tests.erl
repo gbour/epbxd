@@ -20,5 +20,6 @@ atom_test() ->
 str_test() ->
 	?assertEqual("42"    , utils:str(42)),
 	?assertEqual("foobar", utils:str('foobar')),
+	?assertEqual("foobar", utils:str(<<"foobar">>)),
 	ok.
 

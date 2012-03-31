@@ -158,11 +158,12 @@ decode_('Via', Value) ->
 decode_(_, V) ->
 	V.
 
-%% @doc VIA transport: string to atom
+%% @doc VIA transport: string to atom and reverse
 %%
 %% @private
 %% @sample
 %%		udp     = via_transport("UDP").
+%%		"UDP"   = via_transport(udp).
 %%		invalid = via_transport("foobar").
 %%
 -spec via_transport(string()) -> atom().
@@ -170,56 +171,92 @@ via_transport("UDP")  -> udp;
 via_transport("TCP")  -> tcp;
 via_transport("TLS")  -> tls;
 via_transport("SCTP") -> sctp;
+
+via_transport(udp)    -> "UDP";
+via_transport(tcp)    -> "TCP";
+via_transport(tls)    -> "TLS";
+via_transport(sctp)   -> "SCTP";
 via_transport(_)      -> invalid.
 
 
 %%
 %% ENCODING HEADERS
 %%
-encode("Call-id", Value) ->
-	encode("Call-ID", Value);
 
-encode("Content-length", V) ->
-	encode("Content-Length", V);
 
-encode("Content-type", V) ->
-	encode("Content-Type", V);
+%% @doc Encode SIP headers
+%%
+%% encode() take a header key (atom) and associated value (specific for each header),
+%% and return an iolist
+%%
+%% @sample
+%%		<<"CSeq: 100 INVITE">> = iolist_to_binary(encode('CSeq', {100, <<"INVITE">>)).
+%%
+encode('CSeq', {Seq, Method}) ->
+	[<<"CSeq: ">>, utils:str(Seq), $\s, Method];
 
-encode("Cseq", {Seq, Method}) ->
-	lists:concat(["CSeq: ",integer_to_list(Seq)," ",Method]);
-
-encode("Max-forwards", V) ->
-	encode("Max-Forwards", V);
-
-encode("User-agent", Value) ->
-	encode("User-Agent", Value);
-
-encode("Via", #sip_via{transport=T,host=H,port=undefined,params=P}) ->
-	lists:concat([
-		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,uri:format(params,P)
-	]);
-encode("Via", #sip_via{transport=T,host=H,port=Pt,params=P}) ->
-	lists:concat([
-		"Via: SIP/2.0/",string:to_upper(atom_to_list(T))," ",H,":",Pt,uri:format(params,P)
-	]);
+encode('Via', #sip_via{transport=T,host=H,port=Pt,params=P}) ->
+	[<<"Via: SIP/2.0/">>, via_transport(T), $\s, H, via_port(Pt), epbxd_sip_uri:encode(params,P)];
+encode('Via', ListOf)  ->
+	encode('Via', ListOf, []);
 
 encode(Header, #sip_address{displayname=undefined,uri=U,params=P}) when
-		Header =:= "From";
-		Header =:= "To";
-		Header =:= "Contact" ->
-	lists:concat([Header,": <",uri:encode(U),">",uri:format(params,P)]);
+		Header =:= 'From';
+		Header =:= 'To';
+		Header =:= 'Contact' ->
+	[utils:str(Header), <<": <">>, epbxd_sip_uri:encode(U), $>, epbxd_sip_uri:encode(params,P)];
 encode(Header, #sip_address{displayname=D,uri=U,params=P}) when
-		Header =:= "From";
-		Header =:= "To";
-		Header =:= "Contact" ->
-	lists:concat([Header,": \"",D,"\" <",uri:encode(U),">",uri:format(params,P)]);
+		Header =:= 'From';
+		Header =:= 'To';
+		Header =:= 'Contact' ->
+	[
+		utils:str(Header), <<": \"">>, D, <<"\" <">>, epbxd_sip_uri:encode(U), $>,
+		epbxd_sip_uri:encode(params,P)
+	];
 
-encode(Header, Value) when is_list(Value) ->
-	lists:concat([Header,": ",Value]);
-encode(Header, Value) when is_integer(Value) ->
-	lists:concat([Header,": ",integer_to_list(Value)]);
-encode(_,_) ->
-	invalid.
+encode(Header, Value) when is_integer(Value) orelse is_atom(Value) ->
+	[utils:str(Header), <<": ">>, utils:str(Value)];
+
+encode(Header, Value) when is_binary(Value) ->
+	[utils:str(Header), <<": ">>, Value];
+
+%% NOTE: we use io_lib:printable_list() to distinguish strings from lists
+%%       It is really not optimal (as the function look through all list items
+%%
+%%TODO: measure performance loss, optimize
+%%      one way of optimization is to explicitely declare standard SIP headers, as we
+%%      known Values associated with.
+%%      So this method will only be used for custom headers.
+encode(Header, Value) ->
+	case io_lib:printable_list(Value) of
+		true  ->
+			[utils:str(Header), <<": ">>, Value];
+		false ->
+			encode(Header, Value, [])
+	end.
+
+
+%% @doc Lists encoding
+%%
+%% @private
+%%
+encode(_Header, [], Acc)        ->
+	Acc;
+encode(Header, [Val|Tail], [])  ->
+	encode(Header, Tail, encode(Header, Val));
+encode(Header, [Val|Tail], Acc) ->
+	encode(Header, Tail, [Acc, <<"\r\n">>, encode(Header, Val)]).
+
+
+%% @doc Via port encoding
+%%
+%% %private
+%%
+via_port(undefined) ->
+	[];
+via_port(Pt)        ->
+	[$:, utils:str(Pt)].
+
 
 %% @doc Generate a unique tag value
 %% 
