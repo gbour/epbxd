@@ -221,9 +221,14 @@ encode(Header, Value) when is_integer(Value) ->
 encode(_,_) ->
 	invalid.
 
+%% @doc Generate a unique tag value
+%% 
+%% tag is random 16 characters length hexadecimal string
 %%
-%% generate tag value
+%% @sample
+%%		"df45ed856c5b4909" = epbxd_sip_header:tag().
 %%
+-spec tag() -> string().
 tag() ->
 	lists:flatten(
 		lists:foldl(
