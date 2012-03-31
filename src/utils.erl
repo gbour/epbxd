@@ -26,5 +26,8 @@ atom(Val) when is_binary(Val) ->
 
 %
 %
+str(Val) when is_atom(Val)   ->
+	erlang:atom_to_list(Val);
 str(Val) when is_binary(Val) ->
 	erlang:binary_to_list(Val).
+
