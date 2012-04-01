@@ -37,6 +37,30 @@ undefined(V) when length(V) == 0 ->
 undefined(V) ->
 	V.
 
+
+%% @doc Decode SIP URI scheme
+%%
+%% "sip" and "sips" are only valid schemes.
+%% any other value return *invalid* atom.
+%%
+%% @private
+%%
+-spec scheme(decode, string()) -> atom().
+scheme(decode, "sip")  -> sip;
+scheme(decode, "sips") -> sips;
+scheme(decode, _)      -> invalid.
+
+%% @doc Decode SIP URI Port
+%%
+%% @private
+%%
+-spec port(decode, atom()|string()) -> atom()|integer().
+port(decode, undefined) ->
+	undefined;
+port(decode, V)         ->
+	utils:int(V).
+
+
 %% @doc Decode an URI (string) 
 %%
 %% @sample
@@ -54,9 +78,14 @@ decode(Uri) ->
 	case re:run(Uri,
 			"^(?<scheme>[^:]+):((?<user>[^:@]+)(:(?<pwd>[^@]+))?@)?(?<host>[^@:?;]+)(:(?<port>\\d+))?(?<params>[^?]*)(?<headers>.*)$",[{capture,[scheme,user,pwd,host,port,params,headers],list}]) of
 		{match, [Scheme,User,Pwd,Host,Port,Params,Headers]} ->
-			#sip_uri{scheme=Scheme,user=undefined(User),password=undefined(Pwd),host=Host,port=undefined(Port),
-				params=params(Params),
-				headers=headers(Headers)
+			#sip_uri{
+				scheme   = scheme(decode, Scheme),
+				user     = undefined(User),
+				password = undefined(Pwd),
+				host     = Host,
+				port     = port(decode, undefined(Port)),
+				params   = params(Params),
+				headers  = headers(Headers)
 			};
 		_ ->
 			invalid
@@ -73,15 +102,10 @@ decode(Uri) ->
 params(Params) ->
 	case re:run(Params, ";\s*(?<k>[^=;]+)(=(?<v>[^;]+))?",[global,{capture,[k,v],list}]) of
 		{match, Matches} ->
-			lists:map(fun([K, V]) -> list_to_tuple([K, pvalue(V)]) end, Matches);
+			lists:map(fun([K, V]) -> list_to_tuple([K, undefined(V)]) end, Matches);
 		_ ->
 			[]
 	end.
-
-pvalue([]) ->
-	undefined;
-pvalue(V)  ->
-	V.
 
 %% @doc Split URI headers
 %%

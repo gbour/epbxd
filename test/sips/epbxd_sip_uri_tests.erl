@@ -27,28 +27,28 @@ decode_test() ->
 	% Request-URI (no user)
 	% also check default values
 	?assertEqual(
-		#sip_uri{scheme="sip",user=undefined,password=undefined,host="biloxi.com",port=undefined,params=[],headers=[]},
+		#sip_uri{scheme=sip,user=undefined,password=undefined,host="biloxi.com",port=undefined,params=[],headers=[]},
 		epbxd_sip_uri:decode("sip:biloxi.com")),
 
 	?assertEqual(
-		#sip_uri{scheme="sip",user="bob",host="biloxi.com"},
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com"},
 		epbxd_sip_uri:decode("sip:bob@biloxi.com")),
 	?assertEqual(
-		#sip_uri{scheme="sips",user="bob",password="pwd",host="biloxi.com"},
+		#sip_uri{scheme=sips,user="bob",password="pwd",host="biloxi.com"},
 		epbxd_sip_uri:decode("sips:bob:pwd@biloxi.com")),
 	?assertEqual(
-		#sip_uri{scheme="sip",user="bob",host="biloxi.com",port="42"},
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",port=42},
 		epbxd_sip_uri:decode("sip:bob@biloxi.com:42")),
 	?assertEqual(
-		#sip_uri{scheme="sip",user="bob",host="biloxi.com",params=[{"transport","tcp"}]},
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",params=[{"transport","tcp"}]},
 		epbxd_sip_uri:decode("sip:bob@biloxi.com;transport=tcp")),
 	?assertEqual(
-		#sip_uri{scheme="sip",user="bob",host="biloxi.com",headers=[{"a","1"}]},
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",headers=[{"a","1"}]},
 		epbxd_sip_uri:decode("sip:bob@biloxi.com?a=1")),
 	?assertEqual(
-		#sip_uri{scheme="sip",user="bob",password="goose",host="biloxi.com",port="77",params=[{"user","phone"}],
-				headers=[{"callback","foobar"}]},
-			epbxd_sip_uri:decode("sip:bob:goose@biloxi.com:77;user=phone?callback=foobar")).
+		#sip_uri{scheme=sip,user="bob",password="goose",host="biloxi.com",port=77,
+			params=[{"user","phone"}], headers=[{"callback","foobar"}]},
+		epbxd_sip_uri:decode("sip:bob:goose@biloxi.com:77;user=phone?callback=foobar")).
 
 
 %%
