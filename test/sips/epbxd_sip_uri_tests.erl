@@ -8,14 +8,14 @@
 %% DECODING
 %%
 
-params_test() ->
+params_decode_test() ->
 	?assertEqual([{"transport","udp"}] , epbxd_sip_uri:params(";transport=udp")),
 	?assertEqual([{"rport", undefined}], epbxd_sip_uri:params(";rport")),
 	?assertEqual([{"transport","udp"},{"rport", undefined}], epbxd_sip_uri:params(";transport=udp;rport")),
 	?assertEqual([]                    , epbxd_sip_uri:params("")),
 	?assertEqual([]                    , epbxd_sip_uri:params("transport=udp")).
 
-headers_test() ->
+headers_decode_test() ->
 	?assertEqual([{"a","1"}, {"b","2"}], epbxd_sip_uri:headers("?a=1&b=2")),
 	?assertEqual([]                    , epbxd_sip_uri:headers("a=1&b=2")),
 	?assertEqual([]                    , epbxd_sip_uri:headers("")).
@@ -58,12 +58,12 @@ decode_test() ->
 flat(Bs) ->
 	erlang:list_to_bitstring(Bs).
 
-userinfo_test() ->
+userinfo_encode_test() ->
 	?assertEqual(""          , lists:flatten(epbxd_sip_uri:userinfo(undefined, undefined))),
 	?assertEqual("jdoe@"     , lists:flatten(epbxd_sip_uri:userinfo("jdoe", undefined))),
 	?assertEqual("jdoe:abcd@", lists:flatten(epbxd_sip_uri:userinfo("jdoe", "abcd"))).
 
-port_test() ->
+port_encode_test() ->
 	?assertEqual(""     , lists:flatten(epbxd_sip_uri:port(undefined))),
 	?assertEqual(":5060", lists:flatten(epbxd_sip_uri:port(5060))),
 	?assertEqual(":5060", lists:flatten(epbxd_sip_uri:port("5060"))).
