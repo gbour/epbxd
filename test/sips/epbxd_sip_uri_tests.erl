@@ -4,6 +4,9 @@
 
 -include("sips/epbxd_sip.hrl").
 
+%%
+%% DECODING
+%%
 
 params_test() ->
 	?assertEqual([{"transport","udp"}] , epbxd_sip_uri:params(";transport=udp")),
@@ -46,33 +49,69 @@ decode_test() ->
 		#sip_uri{scheme="sip",user="bob",password="goose",host="biloxi.com",port="77",params=[{"user","phone"}],
 				headers=[{"callback","foobar"}]},
 			epbxd_sip_uri:decode("sip:bob:goose@biloxi.com:77;user=phone?callback=foobar")).
-%
-%encode_test() ->
-%	% Request-URI (no user)
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",host="biloxi.com"}),
-%		"sip:biloxi.com"),
-%
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com"}),
-%		"sip:bob@biloxi.com"),
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",password="blowf1sh",host="biloxi.com"}),
-%		"sip:bob:blowf1sh@biloxi.com"),
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com",port=789}),
-%		"sip:bob@biloxi.com:789"),
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com",port="789"}),
-%		"sip:bob@biloxi.com:789"),
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com",
-%				params=[{"transport","tcp"}]}),
-%		"sip:bob@biloxi.com;transport=tcp"),
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com",
-%				headers=[{"ref","http://foo.bar"}]}),
-%		"sip:bob@biloxi.com?ref=http://foo.bar"),
-%
-%	%% complete URI
-%	?assertEqual(epbxd_sip_uri:encode(#sip_uri{scheme="sip",user="bob",host="biloxi.com",port=442,
-%				params=[{"transport","tcp"},{"mac","01:e2:f1:11:4a:10"}],
-%				headers=[{"ref","http://foo.bar"},{"date","2012/05/21"}]}),
-%		"sip:bob@biloxi.com:442;transport=tcp;mac=01:e2:f1:11:4a:10?ref=http://foo.bar&date=2012/05/21"),
-%
-%	ok.
-%	
-%
+
+
+%%
+%% ENCODING
+%%
+
+flat(Bs) ->
+	erlang:list_to_bitstring(Bs).
+
+userinfo_test() ->
+	?assertEqual(""          , lists:flatten(epbxd_sip_uri:userinfo(undefined, undefined))),
+	?assertEqual("jdoe@"     , lists:flatten(epbxd_sip_uri:userinfo("jdoe", undefined))),
+	?assertEqual("jdoe:abcd@", lists:flatten(epbxd_sip_uri:userinfo("jdoe", "abcd"))).
+
+port_test() ->
+	?assertEqual(""     , lists:flatten(epbxd_sip_uri:port(undefined))),
+	?assertEqual(":5060", lists:flatten(epbxd_sip_uri:port(5060))),
+	?assertEqual(":5060", lists:flatten(epbxd_sip_uri:port("5060"))).
+
+params_encode_test() ->
+	?assertEqual(""        , lists:flatten(epbxd_sip_uri:params(encode, []))),
+	?assertEqual(";transport=udp", 
+		lists:flatten(epbxd_sip_uri:params(encode, [{"transport","udp"}]))),
+	?assertEqual(";a=1;b=2", lists:flatten(epbxd_sip_uri:params(encode, [{"a","1"},{"b","2"}]))),
+	?assertEqual(";rport;transport=udp", 
+		lists:flatten(epbxd_sip_uri:params(encode, [{"rport",undefined},{"transport","udp"}]))),
+	?assertEqual(";transport=udp;rport", 
+		lists:flatten(epbxd_sip_uri:params(encode, [{"transport","udp"},{"rport",undefined}]))).
+
+headers_encode_test() ->
+	?assertEqual(""        , lists:flatten(epbxd_sip_uri:headers(encode,[]))),
+	?assertEqual("?a=1"    , lists:flatten(epbxd_sip_uri:headers(encode,[{"a","1"}]))),
+	?assertEqual("?a=1&b=2", lists:flatten(epbxd_sip_uri:headers(encode,[{"a","1"},{"b","2"}]))).
+
+encode_test() ->
+	% no user
+	?assertEqual(<<"sip:biloxi.com">>     , flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sip,host="biloxi.com"}
+	))),
+
+	?assertEqual(<<"sip:bob@biloxi.com">>     , flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com"}
+	))),
+	?assertEqual(<<"sips:bob:pwd@biloxi.com">> , flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sips,user="bob",password="pwd",host="biloxi.com"}
+	))),
+	?assertEqual(<<"sip:bob@biloxi.com:42">>   , flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",port=42}
+	))),
+
+	?assertEqual(<<"sip:bob@biloxi.com;transport=tcp">>, flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",params=[{"transport","tcp"}]}
+	))),
+	?assertEqual(<<"sip:bob@biloxi.com?a=1">>, flat(epbxd_sip_uri:encode(
+		#sip_uri{scheme=sip,user="bob",host="biloxi.com",headers=[{"a","1"}]}
+	))),
+
+	% complete
+	?assertEqual(<<"sip:bob:goose@biloxi.com:77;user=phone?callback=foobar">>, 
+		flat(epbxd_sip_uri:encode(
+			#sip_uri{scheme=sip,user="bob",password="goose",host="biloxi.com",port=77,
+				params=[{"user","phone"}], headers=[{"callback","foobar"}]}
+	))),
+
+	ok.
+

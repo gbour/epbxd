@@ -20,9 +20,9 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, params/1, encode/1, format/2]).
+-export([decode/1, params/1, encode/1, encode/2]).
 -ifdef(debug).
-	-export([headers/1]).
+	-export([headers/1, userinfo/2, port/1, params/2, headers/2]).
 -endif.
 
 -include("utils.hrl").
@@ -101,37 +101,71 @@ headers(_) ->
 %%
 %% Encode URI
 %%
-userinfo(undefined,undefined) ->
-	[];
-userinfo(U,undefined) ->
-	U++"@";
-userinfo(U,P) ->
-	lists:flatten([U,":",P,"@"]).
 
+%% @doc Encode URI params
+%%
+%% @sample
+%%		<<";ttl=45;tag=45oxo00">> = erlang:iolist_to_binary(encode(params, [{"ttl", 45},{"tag", "45oxo00"}])).
+%%
+-spec encode(params, list({string(), any()})) -> iolist().
+encode(params, P) ->
+	params(encode, P).
+
+%% @doc Encode SIP URI
+%%
+-spec encode(#sip_uri{}) -> iolist().
+encode(#sip_uri{scheme=S,user=U,password=P,host=H,port=Pt,params=Pm,headers=Hd}) ->
+	[ scheme(S), $:, userinfo(U,P), H, port(Pt), params(encode, Pm), headers(encode, Hd) ].
+
+%% @doc Encode URI scheme
+%% @private
+scheme(sip)  -> <<"sip">>;
+scheme(sips) -> <<"sips">>.
+
+%% @doc Encode URI userinfo part
+%% @private
+userinfo(undefined, undefined) ->
+	[];
+userinfo(User, undefined) ->
+	[User, $@];
+userinfo(User, Pwd) ->
+	[User, $:, Pwd, $@].
+
+%% @doc Encode URI port part
+%% @private
 port(undefined) ->
 	[];
-port(P) when is_list(P) ->
-	":"++P;
 port(P) when is_integer(P) ->
-	":"++integer_to_list(P).
+	[$:, utils:str(P)];
+port(P) ->
+	[$:, P].
 
-format(_,undefined) ->
+%% @doc Encode URI params
+%% @private
+params(encode, [])     ->
 	[];
-format(_,[]) ->
-	[];
-format(params_,[{K,V}|T]) ->
-	[";",K,"=",V]++format(params_,T);
-format(params,V) ->
-	lists:concat(format(params_,V));
-format(headers_,[{K,V}|T]) ->
-	lists:append([lists:concat([K,"=",V])], format(headers_,T));
-format(headers,V) ->
-	"?"++string:join(format(headers_, V),"&").
+params(encode, Params) ->
+	params(encode, Params, []).
 
-encode(#sip_uri{scheme=S,user=U,password=P,host=H,port=Pt,params=Pm,headers=Hd}) ->
-	lists:concat([
-		S,":",userinfo(U,P),H,port(Pt),
-		format(params,Pm),
-		format(headers,Hd)
-	]).
+params(encode, [], Acc)                  ->
+	Acc;
+params(encode, [{Key, undefined} | Tail], Acc) ->
+	params(encode, Tail, [Acc, $;, Key]);
+params(encode, [{Key, Val} | Tail], Acc) ->
+	params(encode, Tail, [Acc, $;, Key, $=, Val]).
+
+%% @doc Encode URI headers
+%% @private
+headers(encode, [])     ->
+	[];
+headers(encode, Headers) ->
+	headers(encode, Headers, []).
+
+headers(encode, [], Acc)                 ->
+	[$?, Acc];
+headers(encode, [{Key,Val} | Tail], [])  ->
+	headers(encode, Tail, [Key, $=, Val]);
+headers(encode, [{Key,Val} | Tail], Acc) ->
+	headers(encode, Tail, [Acc, $&, Key, $=, Val]).
+
 
