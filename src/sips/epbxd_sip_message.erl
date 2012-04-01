@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1]).
+-export([decode/1, encode/1]).
 
 -ifdef(debug).
 	-export([decode/3]).
@@ -29,14 +29,9 @@
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
 
-% binary packet
-% may by incomplete (framentation)
-
-% cases
-%		1 packet = 1 complete message
-%   1 packet = 1 message but incomplete (fragmentation)
-%   1 packet = 2+ messages (last may be incomplete)
-
+%%
+%% DECODING
+%% 
 
 %% @doc Decode one or more SIP messages
 %%
@@ -45,7 +40,10 @@
 %%		where M is {ok, #sip_message{...}}
 %%    Last element of list MAY BY a {error, invalid, binary tail}
 %%
-%% TODO: partial decoding
+%% TODO: partial decoding (packet fragmentation). cases:
+%%		1 packet = 1 complete message
+%%		1 packet = 1 message but incomplete (fragmentation)
+%%		1 packet = 2+ messages (last may be incomplete)
 %% TODO: don't do global fail if one message fail
 -spec decode(binary()) -> list({ok, sip_message()} | {error, invalid, binary()}).
 decode(Packet) ->
@@ -75,7 +73,7 @@ decode(Packet, Acc) ->
 %% @private
 %% @sample
 %% 		epbxd_sip_message:decode(
-%%		#sip_message{}, 
+%%			#sip_message{}, 
 %%			[<<"SIP/2.0 200 OK">>, .., <<"User-Agent: Epbxd">>],
 %%     	<<"v=0\r\n...>>
 %% 		)
@@ -115,7 +113,8 @@ decode(header, Message=#sip_message{headers=Headers}, [Line|Tail], Rest) ->
 
 	decode(header, M, Tail, Rest);
 
-% end of headers -> reading content
+% end of headers -> reading (but not decoding) message payload
+%
 % TODO: Content-Length is expressed in octet, not characters (should be ok with
 % binaries)
 % TODO: check len(Rest) >= Len (and fail else)
@@ -128,7 +127,7 @@ decode(header, Message=#sip_message{headers=Headers}, [], Rest) ->
 		undefined ->
 			{ok, Message#sip_message{headers=Headers2}, Rest};
 
-		% zero len = no payload
+		% zero length = no payload
 		0         ->
 			{ok, Message#sip_message{headers=Headers2}, Rest};
 
@@ -143,4 +142,37 @@ decode(header, Message=#sip_message{headers=Headers}, [], Rest) ->
 				_    -> {error, invalid}
 			end
 	end.
+
+%%
+%% ENCODING
+%%
+
+%% @doc Encode SIP message
+%%
+%% @return Encoded message (iolist)
+%%		<<"SIP/2.0 200 OK\r\n...>> =
+%%		erlang:iolist_to_binary(epbxd_sip_message:encode(#sip_message{type=response,...})).
+%%
+-spec encode(#sip_message{}) -> iolist().
+encode(#sip_message{version=V,type=request,method=M,uri=U,headers=H}) ->
+	Headers = encode(header, H, []),
+	[
+		utils:str(M), $\s, epbxd_sip_uri:encode(U), $\s, <<"SIP/">>, V, <<"\r\n">>,
+		Headers
+	];
+encode(#sip_message{version=V,type=response,status=S,reason=R,headers=H}) ->
+	Headers = encode(header, H, []),
+
+	[
+		<<"SIP/">>, V, $\s, utils:str(S), $\s, R, <<"\r\n">>,
+		Headers
+	].
+
+encode(header, [], Acc)    ->
+	[Acc, <<"\r\n">>];
+encode(header, [{Header, Value}|Tail], Acc) ->
+	encode(header, Tail, 
+		[Acc, epbxd_sip_header:encode(Header, Value), <<"\r\n">>]
+	).
+	
 

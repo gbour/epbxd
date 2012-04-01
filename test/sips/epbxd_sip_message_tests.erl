@@ -4,14 +4,14 @@
 
 -include("sips/epbxd_sip.hrl").
 
-test_empty_message() ->
+test_decode_empty_message() ->
 	% not defined
 	?_assertError(function_clause, epbxd_sip_message:decode(#sip_message{}, [],	undefined)).
 
-test_invalid_headers() ->
+test_decode_invalid_headers() ->
 	[
 		% invalid Request/Response line
-		?_assertEqual({error, invalid}, epbxd_sip_message:decode(#sip_message{},
+		?_assertEqual({error, invalid, undefined}, epbxd_sip_message:decode(#sip_message{},
 				[<<"foobar">>], undefined)
 		),
 		?_assertError({badmatch, [<<"foobar">>]}, epbxd_sip_message:decode(#sip_message{},
@@ -22,7 +22,7 @@ test_invalid_headers() ->
 		)
 	].
 
-test_request() ->
+test_decode_request() ->
 	?_assertEqual({ok, #sip_message{
 				type    = request,
 				version = <<"2.0">>,
@@ -43,7 +43,7 @@ test_request() ->
 			], undefined)
 	).
 
-test_response() ->
+test_decode_response() ->
 	?_assertEqual({ok, #sip_message{
 				type    = response,
 				version = <<"2.0">>,
@@ -64,7 +64,7 @@ test_response() ->
 			], undefined)
 	).
 
-test_no_content_length() ->
+test_decode_no_content_length() ->
 	% content-length header not defined
 	?_assertEqual({ok, #sip_message{
 				type    = response,
@@ -78,7 +78,7 @@ test_no_content_length() ->
 		epbxd_sip_message:decode(#sip_message{},[<<"SIP/2.0 200 OK">>], <<"blahblahblah">>)
 	).
 
-test_zero_content_length() ->
+test_decode_zero_content_length() ->
 	% content-length header set to 0
 	?_assertEqual({ok, #sip_message{
 				type    = response,
@@ -99,7 +99,7 @@ test_zero_content_length() ->
 	).
 
 
-test_positive_content_length() ->
+test_decode_positive_content_length() ->
 	% content-length header > 0
 	?_assertEqual({ok, #sip_message{
 				type    = response,
@@ -119,7 +119,7 @@ test_positive_content_length() ->
 			], <<"blahblahblah">>)
 	).
 
-test_exact_content_length() ->
+test_decode_exact_content_length() ->
 	% content-length header = exact Rest length
 	?_assertEqual({ok, #sip_message{
 				type    = response,
@@ -139,11 +139,11 @@ test_exact_content_length() ->
 			], <<"blahblahblah">>)
 	).
 
-test_multi_empty() ->
+test_decode_multi_empty() ->
 	% input binary packet is empty
 	?_assertEqual([], epbxd_sip_message:decode(<<>>)).
 
-test_multi_1_message() ->
+test_decode_multi_1_message() ->
 	% binary packet contains one complete SIP message
 
 	?_assertEqual(
@@ -169,7 +169,7 @@ test_multi_1_message() ->
 				"v=0">>
 	)).
 
-test_multi_1_partial() ->
+test_decode_multi_1_partial() ->
 	[
 		{"cannot found \"\\r\\n\\r\\n\" sequence (end-of-headers)",
 			?_assertEqual(
@@ -190,7 +190,7 @@ test_multi_1_partial() ->
 		}
 	].
 
-test_multi_x() ->
+test_decode_multi_x() ->
 	% binary packet contains 2 complete SIP messages
 
 	?_assertEqual(
@@ -231,7 +231,7 @@ test_multi_x() ->
 				"v=0">>
 	)).
 
-test_multi_x_partial() ->
+test_decode_multi_x_partial() ->
 	% last message of binary packet is incomplete
 
 	?_assertEqual(
@@ -290,22 +290,99 @@ decode_test_() ->
 		% tests
 		fun(_) ->
 			[
- 				 {"empty message"       , test_empty_message()}
-				,{"invalid headers"     , test_invalid_headers()}
-				,{"simple request"      , test_request()}
-				,{"simple response"     , test_response()}
-				,{"no content-length"   , test_no_content_length()}
-				,{"zero content-length" , test_zero_content_length()}
-				,{"content-length > 0"  , test_positive_content_length()}
-				,{"content-length == remaining", test_exact_content_length()}
+ 				 {"decode empty message"       , test_decode_empty_message()}
+				,{"decode invalid headers"     , test_decode_invalid_headers()}
+				,{"decode simple request"      , test_decode_request()}
+				,{"decode simple response"     , test_decode_response()}
+				,{"decode no content-length"   , test_decode_no_content_length()}
+				,{"decode zero content-length" , test_decode_zero_content_length()}
+				,{"decode content-length > 0"  , test_decode_positive_content_length()}
+				,{"decode content-length == remaining", test_decode_exact_content_length()}
 
-				,{"empty stream"       , test_multi_empty()}
-				,{"1 complete message" , test_multi_1_message()}
-				,{"1 partial message"  , test_multi_1_partial()}
-				,{"x messages"         , test_multi_x()}
-				,{"x partial messages" , test_multi_x_partial()}
+				,{"decode empty stream"       , test_decode_multi_empty()}
+				,{"decode 1 complete message" , test_decode_multi_1_message()}
+				,{"decode 1 partial message"  , test_decode_multi_1_partial()}
+				,{"decode x messages"         , test_decode_multi_x()}
+				,{"decode x partial messages" , test_decode_multi_x_partial()}
 				
 			]
 		end
 	}. 
 
+%%
+%% ENCODING
+%%
+test_encode_request() ->
+	?_assertEqual(
+		<<
+			"INVITE sip:101@192.168.0.194 SIP/2.0\r\n",
+			"Max-Forwards: 70\r\n",
+			"CSeq: 338 INVITE\r\n",
+			"\r\n"
+		>>,
+		
+		erlang:iolist_to_binary(
+			epbxd_sip_message:encode(#sip_message{
+				type    = request,
+				version = <<"2.0">>,
+				method  = 'INVITE',
+				uri     = <<"sip:101@192.168.0.194">>,
+				headers = [
+					{'Max-Forwards', <<"70">>},
+					{'CSeq'        , <<"338 INVITE">>}
+				],
+				payload = undefined
+			})
+	)).
+
+test_encode_response() ->
+	?_assertEqual(
+		<<
+			"SIP/2.0 200 OK\r\n",
+		  "Call-ID: sapisdmefrjxwmp@bour.cc\r\n",
+			"Forwards: 70\r\n",
+		  "User-Agent: Epbxd\r\n",
+			"\r\n"
+		>>,
+	
+		erlang:iolist_to_binary(
+			epbxd_sip_message:encode(#sip_message{
+				type    = response,
+				version = <<"2.0">>,
+				status  = 200,
+				reason  = <<"OK">>,
+				headers = [
+					{'Call-ID'   , <<"sapisdmefrjxwmp@bour.cc">>},
+					{'Forwards'  , 70},
+					{'User-Agent', <<"Epbxd">>}
+				],
+				payload = undefined
+			})
+	)).
+
+
+encode_test_() ->
+	{setup, local,
+		% init
+		fun() ->
+			meck:new(epbxd_sip_header),
+			meck:expect(epbxd_sip_header, encode, fun(K, V) ->
+				erlang:atom_to_list(K) ++ ": " ++ utils:str(V)
+			end),
+
+			meck:new(epbxd_sip_uri),
+			meck:expect(epbxd_sip_uri, encode, fun(U) -> U end)
+		end,
+		% teardown
+		fun(_) ->
+			meck:unload(epbxd_sip_header),
+			meck:unload(epbxd_sip_uri)
+		end,
+		% tests
+		fun(_) ->
+			[
+				 {"encode request" , test_encode_request()}	
+				,{"encode response", test_encode_response()}
+			]
+		end
+	}.
