@@ -95,7 +95,7 @@ decode(Message=#sip_message{}, [Line|Tail], Rest) ->
 		[Method, URI, <<"SIP/", Version/binary>>] ->
 			decode(header,
 				Message#sip_message{type=request, version=Version, 
-				                    method=utils:atom(Method), uri=uri:decode(URI)},
+				                    method=utils:atom(Method), uri=epbxd_sip_uri:decode(URI)},
 				Tail,
 				Rest);
 
