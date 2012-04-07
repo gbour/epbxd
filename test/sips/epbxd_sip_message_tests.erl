@@ -139,6 +139,27 @@ test_decode_exact_content_length() ->
 			], <<"blahblahblah">>)
 	).
 
+test_decode_split()   ->
+	[
+		?_assertEqual(
+			[{error, invalid, <<"SIP/2.0 200 OK\r\nUser-Agent: Epbxd\r\n\r">>}],
+			epbxd_sip_message:decode(<<"SIP/2.0 200 OK\r\nUser-Agent: Epbxd\r\n\r">>)
+		),
+		?_assertEqual(
+			[{ok, #sip_message{type=response, version= <<"2.0">>, status=200,	reason= <<"OK">>,
+				headers=[{'User-Agent', <<"Epbxd">>}]}}],
+			epbxd_sip_message:decode(<<"SIP/2.0 200 OK\r\nUser-Agent: Epbxd\r\n\r\n">>)
+		),
+		?_assertEqual(
+			[
+				{ok, #sip_message{type=response, version= <<"2.0">>, status=200,	reason= <<"OK">>,
+					headers=[{'User-Agent', <<"Epbxd">>}]}},
+				{error, invalid, <<"xoxo">>}
+			],
+			epbxd_sip_message:decode(<<"SIP/2.0 200 OK\r\nUser-Agent: Epbxd\r\n\r\nxoxo">>)
+		)
+	].
+
 test_decode_multi_empty() ->
 	% input binary packet is empty
 	?_assertEqual([], epbxd_sip_message:decode(<<>>)).
@@ -299,6 +320,7 @@ decode_test_() ->
 				,{"decode content-length > 0"  , test_decode_positive_content_length()}
 				,{"decode content-length == remaining", test_decode_exact_content_length()}
 
+				,{"decode splitting multimessages stream", test_decode_split()}
 				,{"decode empty stream"       , test_decode_multi_empty()}
 				,{"decode 1 complete message" , test_decode_multi_1_message()}
 				,{"decode 1 partial message"  , test_decode_multi_1_partial()}

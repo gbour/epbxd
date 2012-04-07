@@ -54,18 +54,21 @@ decode(Packet) ->
 decode(<<>>, Acc)   ->
 	Acc;
 decode(Packet, Acc) ->
-	case binstr:split(Packet, <<"\r\n\r\n">>, 2) of
-		[Head,Tail] ->
+	case binstr:strpos(Packet, <<"\r\n\r\n">>) of
+		0 ->
+			[{error, invalid, Packet} | Acc];
+
+		Pos ->
+			Head = binstr:substr(Packet, 1, Pos+1),
+			Tail = binstr:substr(Packet, Pos+4),
+
 			case decode(#sip_message{}, binstr:split(Head, <<"\r\n">>), Tail) of
 				{ok, Message, Rest} ->
 					decode(Rest, [{ok, Message} | Acc]);
 
 				{error, invalid}    ->
 					[{error, invalid, <<Packet/binary>>} | Acc]
-			end;
-
-		_Packet ->
-			[{error, invalid, Packet} | Acc]
+			end
 	end.
 
 %% @doc Decode a single message
