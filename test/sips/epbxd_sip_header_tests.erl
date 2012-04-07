@@ -12,6 +12,18 @@
 bin(IOList) ->
 	erlang:iolist_to_binary(IOList).
 
+test_normalize_header() ->
+	[
+		?_assertEqual('From'    , epbxd_sip_header:normalize('From')),
+		?_assertEqual('From'    , epbxd_sip_header:normalize('f')),
+		?_assertEqual('X-Custom', epbxd_sip_header:normalize('X-Custom')),
+
+		?_assertEqual('From'    , epbxd_sip_header:normalize(<<"From">>)),
+		?_assertEqual('From'    , epbxd_sip_header:normalize("From")),
+		?_assertEqual('From'    , epbxd_sip_header:normalize(<<"f">>)),
+		?_assertEqual('From'    , epbxd_sip_header:normalize("f"))
+	].
+
 test_decode_from_header() ->
 	[
 		?_assertEqual({'From', #sip_address{displayname=[], uri="uri", params=[]}},
@@ -206,6 +218,42 @@ test_tag_generation() ->
 		?_assertEqual(16, length(epbxd_sip_header:tag()))
 	].
 
+test_merge_decode_multi_header() ->
+	[
+		?_assertEqual(
+			{'Via',	[#sip_via{transport=invalid,host="host",port=undefined,params=[]}]},
+			epbxd_sip_header:decode('Via', <<"SIP/2.0/PLOP host">>, undefined)
+		),
+		?_assertEqual(
+			{'Via',	[first, #sip_via{transport=invalid,host="host",port=undefined,params=[]}]},
+			epbxd_sip_header:decode('Via', <<"SIP/2.0/PLOP host">>, [first])
+		)
+	].
+
+test_merge_decode_single_header() ->
+	[
+		?_assertEqual({'Max-Forwards', 77},
+			epbxd_sip_header:decode('Max-Forwards', <<"77">>, undefined)
+		),
+		?_assertEqual({'Max-Forwards', 77},
+			epbxd_sip_header:decode('Max-Forwards', <<"77">>, [first])
+		)
+	].
+
+test_merge_decode_custom_header() ->
+	[
+		?_assertEqual({'X-Custom', <<"Zzz">>},
+			epbxd_sip_header:decode('X-Custom', <<"Zzz">>, undefined)
+		),
+		?_assertEqual({'X-Custom', [<<"first">>, <<"Zzz">>]},
+			epbxd_sip_header:decode('X-Custom', <<"Zzz">>, <<"first">>)
+		),
+		?_assertEqual({'X-Custom', [first, <<"Zzz">>]},
+			epbxd_sip_header:decode('X-Custom', <<"Zzz">>, [first])
+		)
+	].
+
+
 headers_test_() ->
 	{setup, local,
 		% init
@@ -233,7 +281,8 @@ headers_test_() ->
 		% funs
 		fun(_) ->
 			[
-				 {"decoding 'From' header"           , test_decode_from_header()}
+				 {"normalizing headers"              , test_normalize_header()}
+				,{"decoding 'From' header"           , test_decode_from_header()}
 				,{"decoding 'To' header"             , test_decode_to_header()}
 				,{"decoding 'Contact' header"        , test_decode_contact_header()}
 				,{"decoding 'Content-Length' header" , test_decode_content_length_header()}
@@ -252,6 +301,10 @@ headers_test_() ->
 				,{"encoding 'Custom' header"         , test_encode_custom_header()}
 
 				,{"*tag* generation"                 , test_tag_generation()}
+
+				,{"merge/decode multi  headers"      , test_merge_decode_multi_header()}
+				,{"merge/decode single headers"      , test_merge_decode_single_header()}
+				,{"merge/decode custom headers"      , test_merge_decode_custom_header()}
 			]
 		end
 	}.

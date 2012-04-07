@@ -110,10 +110,18 @@ decode(Message=#sip_message{}, [Line|Tail], Rest) ->
 
 decode(header, Message=#sip_message{headers=Headers}, [Line|Tail], Rest) ->
 	[Key, Value] = [ binstr:strip(Item) || Item <- binstr:split(Line, <<":">>, 2) ],
-	M = Message#sip_message{headers=
-		[epbxd_sip_header:decode(Key, Value) | Headers]
-	},
+	Key2 = epbxd_sip_header:normalize(Key),
+	
+	{Tuple, Headers2} = case lists:keytake(Key2, 1, Headers) of
+		{value, {Key2, Stored}, _Headers} ->
+			{epbxd_sip_header:decode(Key2, Value, Stored), _Headers};
 
+		false ->
+			{epbxd_sip_header:decode(Key2, Value, undefined), Headers}
+	end,
+
+	%io:format(user, "plop ~p ~p~n",[Tuple, Headers2]),
+	M = Message#sip_message{headers=[Tuple | Headers2]},
 	decode(header, M, Tail, Rest);
 
 % end of headers -> reading (but not decoding) message payload

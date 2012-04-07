@@ -22,7 +22,9 @@ int(Val) when is_list(Val)   ->
 	erlang:list_to_integer(Val).
 
 atom(Val) when is_binary(Val) ->
-	erlang:binary_to_atom(Val, latin1).
+	erlang:binary_to_atom(Val, latin1);
+atom(Val) when is_list(Val)   ->
+	erlang:list_to_atom(Val).
 
 %
 %

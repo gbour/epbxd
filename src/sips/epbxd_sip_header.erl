@@ -19,7 +19,7 @@
 -module(epbxd_sip_header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([decode/2, encode/2, tag/0]).
+-export([decode/3, decode/2, encode/2, normalize/1, tag/0]).
 
 -include("utils.hrl").
 -include("epbxd_sip.hrl").
@@ -28,6 +28,56 @@
 %% DECODING
 %%
 %%
+
+% headers multi-line mode
+%		both are for standardized headers
+%		multi : keep all in a list
+%		single: keep only last value
+%
+%		following is for custom headers
+%		custom: if one, return value, else a list of all values
+%
+mode('Via')            -> multi;
+mode('Route')          -> multi;
+mode('From')           -> single;
+mode('To')             -> single;
+mode('Contact')        -> single;
+mode('Content-Length') -> single;
+mode('CSeq')           -> single;
+mode('Max-Forwards')   -> single;
+mode(_)                -> custom.
+
+%% @doc Decode SIP header.
+%%		decoded value is merge with precedent value(s) following header mode
+%%	
+-spec decode(atom(), binary(), undefined|list()|binary()) -> tuple(atom(), any()).
+decode(Header, Value, Decoded) ->
+	{Header, merge_(mode(Header), decode_(Header, Value), Decoded)}.
+
+%% @doc
+-spec merge_(atom(), any(), undefined|binary()|string()|list()) -> any().
+% Standard one-valued headers
+%		keeping only the last value
+merge_(single, Value, _)                               ->
+	Value;
+% Standard multi-valued headers
+%		keeping all values in an ordered list
+merge_(multi, Value, undefined)                        -> 
+	[Value];
+merge_(multi, Value, List)                             ->
+	List ++ [Value];
+% Custom headers:
+%		if one value found, return raw (binary) value
+%		else if more than one value, return list of raw values
+merge_(custom, Value, undefined)                       ->
+	Value;
+merge_(custom, Value, Decoded) when is_binary(Decoded) ->
+	merge_(custom, Value, [Decoded]);
+%NOTE: as custom header values are kept as binary, we have no collision between
+%			 lists and strings
+merge_(custom, Value, Decoded) when is_list(Decoded)   ->
+	Decoded ++ [Value].
+
 
 %% @doc Decode a SIP header (already splitted)
 %%
@@ -46,17 +96,18 @@
 %%
 -spec decode(binary(), binary()) -> tuple(atom(), any()).
 decode(Header, Value) ->
-	H = normalize_(Header),
+	H = normalize(Header),
 	{H, decode_(H, Value)}.
 
 %% @doc Normalize SIP header
 %%		. convert binary/list to atom
 %%		. convert header short-form to long-form
--spec normalize_(binary() | atom()) -> atom().
-normalize_(Header) when is_binary(Header); is_list(Header) ->
-	utils:atom(Header);
-normalize_('f')    -> 'From';
-normalize_(Header) -> Header.
+%%
+-spec normalize(binary() | atom()) -> atom().
+normalize(Header) when is_binary(Header); is_list(Header) ->
+	normalize(utils:atom(Header));
+normalize('f')    -> 'From';
+normalize(Header) -> Header.
 
 %% @doc	Decode header value
 %%

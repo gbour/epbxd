@@ -64,6 +64,95 @@ test_decode_response() ->
 			], undefined)
 	).
 
+test_decode_headers_mode() ->
+	[
+		% single
+		?_assertEqual({ok, #sip_message{
+				type    = response,
+				version = <<"2.0">>,
+				status  = 200,
+				reason  = <<"OK">>,
+				headers = [
+					{'User-Agent', <<"Epbxd">>},
+					{'Call-ID'   , <<"xoxo@bour.cc">>}
+				],
+				payload = undefined
+			}, undefined},
+
+			epbxd_sip_message:decode(#sip_message{},
+				[
+					<<"SIP/2.0 200 OK">>,
+					<<"Call-ID: sapisdmefrjxwmp@bour.cc">>,
+					<<"User-Agent: Epbxd">>,
+					<<"Call-ID: xoxo@bour.cc">>
+				], undefined)
+		),
+
+		% multi
+		?_assertEqual({ok, #sip_message{
+				type    = response,
+				version = <<"2.0">>,
+				status  = 200,
+				reason  = <<"OK">>,
+				headers = [
+					{'User-Agent', <<"Epbxd">>},
+					{'Via'       , [<<"roma">>, <<"lutece">>]}
+				],
+				payload = undefined
+			}, undefined},
+
+			epbxd_sip_message:decode(#sip_message{},
+				[
+					<<"SIP/2.0 200 OK">>,
+					<<"Via: roma">>,
+					<<"User-Agent: Epbxd">>,
+					<<"Via: lutece">>
+				], undefined)
+		),
+
+		% custom
+		?_assertEqual({ok, #sip_message{
+				type    = response,
+				version = <<"2.0">>,
+				status  = 200,
+				reason  = <<"OK">>,
+				headers = [
+					{'X-Custom'  , <<"cuddle">>},
+					{'User-Agent', <<"Epbxd">>}
+				],
+				payload = undefined
+			}, undefined},
+
+			epbxd_sip_message:decode(#sip_message{},
+				[
+					<<"SIP/2.0 200 OK">>,
+					<<"X-Custom: cuddle">>,
+					<<"User-Agent: Epbxd">>
+				], undefined)
+		),
+
+		?_assertEqual({ok, #sip_message{
+				type    = response,
+				version = <<"2.0">>,
+				status  = 200,
+				reason  = <<"OK">>,
+				headers = [
+					{'User-Agent', <<"Epbxd">>},
+					{'X-Custom'  , [<<"cuddle">>, <<"kiss">>]}
+				],
+				payload = undefined
+			}, undefined},
+
+			epbxd_sip_message:decode(#sip_message{},
+				[
+					<<"SIP/2.0 200 OK">>,
+					<<"X-Custom: cuddle">>,
+					<<"User-Agent: Epbxd">>,
+					<<"X-Custom: kiss">>
+				], undefined)
+		)
+	].
+
 test_decode_no_content_length() ->
 	% content-length header not defined
 	?_assertEqual({ok, #sip_message{
@@ -293,19 +382,33 @@ decode_test_() ->
 			meck:expect(epbxd_sip_uri, decode, fun(U) -> U end),
 
 			meck:new(epbxd_sip_header),
-			meck:expect(epbxd_sip_header, decode, fun(K,V) -> 
-				K2 = binary_to_atom(K, latin1),
+			meck:expect(epbxd_sip_header, normalize, fun(K) ->
+				erlang:binary_to_atom(K, latin1)
+			end),
 
+			meck:expect(epbxd_sip_header, decode, fun(K,V,S) ->
 				V2 = if
-					K2 =:= 'Content-Length' -> list_to_integer(binary_to_list(V));
-					true                    -> V
+					K =:= 'Content-Length' -> list_to_integer(binary_to_list(V));
+					K =:= 'Via'            -> 
+						case S of
+							undefined -> [V];
+							_         -> S ++ [V]
+						end;
+
+					K =:= 'X-Custom'       ->
+						case S of
+							undefined -> V;
+							_         -> [S,V]
+						end;
+
+					true                   -> V
 				end,
 
-				{K2, V2}
+				{K, V2}
 			end)
 		end,
 		fun(_) ->
-			meck:unload(uri),
+			meck:unload(epbxd_sip_uri),
 			meck:unload(epbxd_sip_header)
 		end,
 		% tests
@@ -315,6 +418,7 @@ decode_test_() ->
 				,{"decode invalid headers"     , test_decode_invalid_headers()}
 				,{"decode simple request"      , test_decode_request()}
 				,{"decode simple response"     , test_decode_response()}
+				,{"decode multi-headers"       , test_decode_headers_mode()}
 				,{"decode no content-length"   , test_decode_no_content_length()}
 				,{"decode zero content-length" , test_decode_zero_content_length()}
 				,{"decode content-length > 0"  , test_decode_positive_content_length()}
