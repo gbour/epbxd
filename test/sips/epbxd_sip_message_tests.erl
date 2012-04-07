@@ -289,8 +289,8 @@ decode_test_() ->
 	{setup, local,
 		% init
 		fun() ->
-			meck:new(uri),
-			meck:expect(uri, decode, fun(U) -> U end),
+			meck:new(epbxd_sip_uri),
+			meck:expect(epbxd_sip_uri, decode, fun(U) -> U end),
 
 			meck:new(epbxd_sip_header),
 			meck:expect(epbxd_sip_header, decode, fun(K,V) -> 
