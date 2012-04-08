@@ -22,6 +22,10 @@ start(normal, Args) ->
 	mnesia:create_schema([node()]),
 	mnesia:start(),
 
+	% load modules
+	modules_load(),
+
+
 	% start webservice
 	application:start(cowboy),
 	Dispatch = [
@@ -74,4 +78,19 @@ ejabberd_connect() ->
 
 		_    -> fail
 	end.
+
+modules_load() ->
+	epbxd_hooks:start_link(),
+	code:add_path("./modules"),
+
+	{ok, Filenames} = file:list_dir("./modules"),
+	io:format("mods= ~p~n",[Filenames]),
+
+	lists:foreach(fun(F) ->
+			[Mod|_] = string:tokens(F, "."),
+			io:format("Loading ~s module~n", [Mod]),
+
+			(erlang:list_to_atom(Mod)):start()
+		end, Filenames
+	).
 
