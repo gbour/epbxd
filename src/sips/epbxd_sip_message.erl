@@ -20,10 +20,10 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1]).
+-export([decode/1, encode/1, response/2]).
 
 -ifdef(debug).
-	-export([decode/3]).
+	-export([decode/3, to/2]).
 -endif.
 
 -include("utils.hrl").
@@ -59,7 +59,7 @@ decode(Packet, Acc) ->
 			[{error, invalid, Packet} | Acc];
 
 		Pos ->
-			Head = binstr:substr(Packet, 1, Pos+1),
+			Head = binstr:substr(Packet, 1, Pos-1),
 			Tail = binstr:substr(Packet, Pos+4),
 
 			case decode(#sip_message{}, binstr:split(Head, <<"\r\n">>), Tail) of
@@ -187,3 +187,91 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 	).
 	
 
+%%
+%% RESPONSES
+%%
+
+%% @doc Build a SIP response messages
+%%
+%%	building response message is based on request,
+%%	following process described in RFC 3261, chapter 8.2.6
+%%
+%% @sample
+%%		Response = epbxd_sip_message:response(trying, Request).
+%%
+
+% 1xx provisional responses
+-spec response(atom(), #sip_message{}) -> #sip_message{}.
+response(trying , Req) ->
+	response(provisional_, Req, 100, "Trying");
+response(ringing, Req) ->
+	response(provisional_, Req, 180, "Ringing");
+
+% 2XX
+response(ok     , Req) ->
+	response(standard_   , Req, 200, "OK");
+
+% 4XX
+response('not-found', Req) ->
+	response(standard_, Req, 404, "Not found").
+
+%% @doc Generate provisional response (1xx)
+%%
+%% @private
+%%
+%%TODO: handle Timestamp header
+%%TODO: lists:nth(.. 'Via' ..) will crash if 'Via' header not set in message
+-spec response(atom(), #sip_message{}, integer(), string()) -> #sip_message{}.
+response(provisional_, Request, Status, Reason) ->
+	response(standard_, Request, Status, Reason);
+
+%% @doc Generate standard response
+%% @private
+response(standard_   , #sip_message{headers=Headers}, Status, Reason) ->
+	#sip_message{
+		type    = response,
+		status  = Status,
+		reason  = Reason,
+		headers = [
+			{'Via'            , proplists:get_value('Via'    , Headers)},
+			{'From'           , proplists:get_value('From'   , Headers)},
+			{'To'             , to(proplists:get_value('To', Headers), Status)},
+			{'Call-ID'        , proplists:get_value('Call-ID', Headers)},
+			{'CSeq'           , proplists:get_value('CSeq'   , Headers)},
+			{'User-Agent'     , header('User-Agent' )},
+			{'Content-Length' , 0}
+		]
+	}.
+
+%% @doc Append *tag* param in To header except for "100 Trying" provisional response
+%%
+%% *tag* param is not added for 100/Trying provisional response
+%% For all other response, a *tag* param is added, unless already set
+%%
+%% @private
+%% @sample
+%%		#sip_address{params=[]}               = epbxd_sip_response:to(#sip_address{params=[]}, 100),
+%%		#sip_address{params=[{"tag","1234"}]} = epbxd_sip_response:to(#sip_address{params=[]}, 180),
+%%		#sip_address{params=[{"tag","777"}]}  =	epbxd_sip_response:to(#sip_address{params=[{"tag","777"}]}, 180).
+%%
+-spec to(#sip_address{}, integer()) -> #sip_address{}.
+to(To, 100) ->
+	To;
+to(To=#sip_address{params=Params}, _)   ->
+	case proplists:is_defined("tag", Params) of 
+		true  ->
+			To;
+		false ->
+			To#sip_address{params=[{"tag", epbxd_sip_header:tag()} | Params]}
+	end.
+
+%%
+%% Standardized headers
+%%
+header('Allow')      ->
+	false;
+header('Supported')  ->
+	false;
+%%TODO: user-agent must be read from configuration
+header('User-Agent') ->
+	"Epbxd".

@@ -1,7 +1,7 @@
 
 SRC     = $(wildcard *.erl)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = mods
+SUBDIRS =
 
 all: subdirs $(BEAMS)
 
@@ -11,6 +11,6 @@ subdirs:
 	done
 
 $(BEAMDIR)/%.beam: %.erl
-	$(CC) $(EFLAGS) -o $(BEAMDIR) $<
+	$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
 
 .PHONY: all subdirs

@@ -7,11 +7,12 @@ EFLAGS += -I $(shell pwd)/../resources/cowboy/include
 EFLAGS += -I /usr/lib/erlang/lib
 
 ifeq ($(MAKECMDGOALS),test)
-	EFLAGS += -Ddebug
+	EFLAGS += -Ddebug -DTEST +debug_info
 endif
 export CC BEAMDIR EFLAGS
 
 all:
+	mkdir -p ebin/modules
 	$(MAKE) -C src/
 
 test: all
