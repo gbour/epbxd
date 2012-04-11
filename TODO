@@ -1,5 +1,6 @@
 
 SIP decoding:
+	. support all standard SIP headers
 	. Header multivalues (comma separated)
 	. multiline header
 	. unittests
@@ -17,6 +18,26 @@ message)
 			     called as dict:fetch("User-agent",...)
 	    in call from sips:handle/2
       in call from lists:foreach/2
+	. 'tel:' URIs
+	. sip message: decode partial messages
+		- missing headers (\r\n*2 not found)
+		- incomplete payload
+	. User-Agent read from configuration
+	. Response generation: Timestamp+delay header
+	. set received=source_ip when parsing request
+	. headers normalization: to complete
+
+	Headers:
+	. a SIP message may have multiple Contact addresses ???
+
+	Normalization
+	. lowering headers params (key AND value) (see RFC 3261#7.3.1)
+
+	Response routing
+	. TCP, SSL protocols
+	. UDP: pool of sockets
+	. UDP: other client connection modes (fallbacks)
+	. other things to check/cleanup in response messages ?
 
 Dialplan/Application
 	. erlang dialplan: dynamically compiled code
@@ -30,3 +51,18 @@ Admin Console
 SDP
 	. '\n' ending message
 	. test error cases 
+
+MODULES
+	GENERAL
+	. selectively load modules (defined in configuration file)
+
+	SIP REGISTER
+	. Trying response sending MUST be configurable (desactivable)
+
+UNITTESTS
+	. sip_message:response
+	. sip_routing:*
+	. mod_register
+
+GENERAL
+	. Where manage database tables (registrations, endpoints,...)
