@@ -55,7 +55,7 @@ start() ->
 %%
 -spec stop() -> ok|fail.
 stop() ->
-	epbxd_hooks:del({sip, request, 'REGISTER'}, {?MODULE, register});
+	epbxd_hooks:del({sip, request, 'REGISTER'}, {?MODULE, register}),
 	ok.
 
 %% @doc SIP REGISTER request hook
@@ -88,7 +88,7 @@ register(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) -
 	% default registration expiry (in seconds)
 	Expires = 3600,
 
-	RespCode = case
+	Response = case
 		mnesia:dirty_read(endpoints, User)
 	of
 		% Endpoint found. 200 OK
@@ -98,16 +98,13 @@ register(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) -
 				Contact = proplists:get_value('Contact', Headers),
 				mnesia:dirty_write(registrations,#registration{name=User,	uri=Contact#sip_address.uri}),
 
-				ok;
+				epbxd_sip_message:response(ok, Request, [{'Expires', 3600}]);
 
 		% 404 NOT FOUND
 		[]      -> 
 				?DEBUG("Endpoint not found. Returning 404",[]),
-				'not-found'
+				epbxd_sip_message:response('not-found', Request)
 	end,
 
-	epbxd_sip_routing:send(
-		epbxd_sip_message:response(RespCode, Request), 
-		Transport, Sock
-	),
+	epbxd_sip_routing:send(Response, Transport, Sock),
 	{ok, done}.

@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1, response/2]).
+-export([decode/1, encode/1, response/2, response/3]).
 
 -ifdef(debug).
 	-export([decode/3, to/2]).
@@ -191,6 +191,25 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 %% RESPONSES
 %%
 
+%% @doc Status/Reason mapping
+%%
+%% Associate Status/Reason tuples with a unique atom
+%%
+%% @private
+%%
+-spec status(atom()) -> tuple(integer(), string()).
+% 1xx provisional responses
+status(trying)      ->
+	{100, "Trying"};
+status(ringing)     ->
+	{180, "Ringing"};
+% 2XX
+status(ok)          ->
+	{200, "OK"};
+% 4XX
+status('not-found') ->
+	{404, "Not found"}.
+
 %% @doc Build a SIP response messages
 %%
 %%	building response message is based on request,
@@ -199,49 +218,66 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 %% @sample
 %%		Response = epbxd_sip_message:response(trying, Request).
 %%
-
-% 1xx provisional responses
 -spec response(atom(), #sip_message{}) -> #sip_message{}.
-response(trying , Req) ->
-	response(provisional_, Req, 100, "Trying");
-response(ringing, Req) ->
-	response(provisional_, Req, 180, "Ringing");
+response(Type, Req) ->
+	response(Type, Req, []).
 
-% 2XX
-response(ok     , Req) ->
-	response(standard_   , Req, 200, "OK");
+% @private
+-record(args_, {status, custom, request}).
 
-% 4XX
-response('not-found', Req) ->
-	response(standard_, Req, 404, "Not found").
-
-%% @doc Generate provisional response (1xx)
+%% @doc Build response message
 %%
 %% @private
 %%
 %%TODO: handle Timestamp header
 %%TODO: lists:nth(.. 'Via' ..) will crash if 'Via' header not set in message
--spec response(atom(), #sip_message{}, integer(), string()) -> #sip_message{}.
-response(provisional_, Request, Status, Reason) ->
-	response(standard_, Request, Status, Reason);
-
-%% @doc Generate standard response
-%% @private
-response(standard_   , #sip_message{headers=Headers}, Status, Reason) ->
+-spec response(atom(), #sip_message{}, list()) -> #sip_message{}.
+response(Type, #sip_message{headers=Headers}, CustomHeaders) ->
+	{Status, Reason} = status(Type),
+	
 	#sip_message{
 		type    = response,
 		status  = Status,
 		reason  = Reason,
-		headers = [
-			{'Via'            , proplists:get_value('Via'    , Headers)},
-			{'From'           , proplists:get_value('From'   , Headers)},
-			{'To'             , to(proplists:get_value('To', Headers), Status)},
-			{'Call-ID'        , proplists:get_value('Call-ID', Headers)},
-			{'CSeq'           , proplists:get_value('CSeq'   , Headers)},
-			{'User-Agent'     , header('User-Agent' )},
-			{'Content-Length' , 0}
-		]
+		headers = headers_fmt(?HEADERS_ORDER, [], 
+			                    #args_{status=Type, custom=CustomHeaders, request=Headers})
+	%	++
+	%		[
+	%			{'Content-Type'}
+	%		]
 	}.
+
+headers_fmt([], Acc, #args_{custom=C})                       ->
+	lists:reverse(Acc) ++ C;
+headers_fmt([{Key, ExtraDS}|Tail], Acc, Args) ->
+	io:format(user, "## ~p~n",[Key]),
+	{Value, CustomHeaders} = header_fmt(custom, {Key,ExtraDS}, Args),
+	headers_fmt(Tail, [{Key, Value} | Acc], Args#args_{custom=CustomHeaders}).
+
+header_fmt(custom, {Key, ExtraDS}, Args=#args_{custom=Cust}) ->
+	case lists:keytake(Key, 1, Cust) of
+		{value, {Key, Value}, Cust2} ->
+			{Value, Cust2};
+
+		false                                ->
+			header_fmt(ExtraDS, Key, Args)
+	end;
+header_fmt(request, Key, Args=#args_{request=Req})           ->
+	case lists:keyfind(Key, 1, Req) of
+		false        ->
+			header_fmt(default, Key, Args);
+
+		{Key, Value} ->
+			{format(Key, Value, Args#args_.status), Args#args_.custom}
+	end;
+header_fmt(default, Key, #args_{custom=C})                   ->
+	{header(Key), C}.
+
+
+format('To', Value, Status) ->
+	to(Value, Status);
+format(_   , Value, _)      ->
+	Value.
 
 %% @doc Append *tag* param in To header except for "100 Trying" provisional response
 %%
@@ -268,10 +304,21 @@ to(To=#sip_address{params=Params}, _)   ->
 %%
 %% Standardized headers
 %%
+%-spec(
+header('Content-Length') ->
+	0;
 header('Allow')      ->
-	false;
+	undefined;
+header('From') ->
+	undefined;
 header('Supported')  ->
-	false;
+	undefined;
+header('Date')         ->
+	undefined;
+header('Max-Forwards') ->
+	70;
 %%TODO: user-agent must be read from configuration
 header('User-Agent') ->
-	"Epbxd".
+	"Epbxd";
+header(_) ->
+	undefined.

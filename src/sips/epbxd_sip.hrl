@@ -91,3 +91,26 @@
 	d_msg,
 	d_uri
 }).
+
+
+
+% headers by order
+-define(HEADERS_ORDER, [
+		% Header         , use Request headers as datasource
+		%                  (Custom -> Request? -> Default)
+		{'Via'           , request},
+		{'Max-Forwards'  , default},
+		{'From'          , request},
+		{'To'            , request},
+		{'Call-ID'       , request},
+		{'CSeq'          , request},
+		{'Expires'       , default},
+		{'Contact'       , request},
+		{'Allow'         , default},
+		{'Supported'     , default},
+		{'Date'          , default},
+		{'User-Agent'    , default}%,
+%		{'Content-Type'  , default},
+%		{'Content-Length', default}
+	]).
+
