@@ -8,10 +8,10 @@ SUBDIRS = sips sdp rtp
 all: subdirs $(BEAMS)
 
 subdirs:
-	for dir in $(SUBDIRS); do \
+	@for dir in $(SUBDIRS); do \
 		$(MAKE) -e -C $$dir; \
 	done
 
 $(BEAMDIR)/%.beam: %.erl
-	$(CC) $(EFLAGS) -o $(BEAMDIR) $<
+	@$(CC) $(EFLAGS) -o $(BEAMDIR) $<
 

@@ -6,11 +6,11 @@ SUBDIRS =
 all: subdirs $(BEAMS)
 
 subdirs:
-	for dir in $(SUBDIRS); do \
+	@for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir; \
 	done
 
 $(BEAMDIR)/%.beam: %.erl
-	$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
+	@$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
 
 .PHONY: all subdirs

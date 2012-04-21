@@ -13,10 +13,10 @@ export CC BEAMDIR EFLAGS
 
 all:
 	mkdir -p ebin/modules
-	$(MAKE) -C src/
+	@$(MAKE) -C src/
 
 test: all
-	$(MAKE) -C test/
+	@$(MAKE) -C test/
 
 runtests: test
 	for i in ebin/*_tests.beam; do \
