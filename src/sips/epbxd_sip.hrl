@@ -35,11 +35,14 @@
 %% endpoint registration record
 -record(registration, {
 		name,
+%		proto = sip,iax,sccp
+%		uri = contact uri
 		uri,
 		macaddr, 
+% in uri
+%		transport,
 %		ip, 
 %		port, 
-%		transport, 
 		ua,
 		timeout,              %% timeout datetime
 		ping                  %% ping datetime
