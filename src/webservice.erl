@@ -5,9 +5,9 @@
 
 -include("http.hrl").
 -include("jsonerl.hrl").
--include("stdlib-1.18/include/qlc.hrl").
 -include("sips/sips.hrl").
 -include("utils.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
 init({tcp, http}, Req, Opts) ->
 	{ok, Req, undefined_state}.
