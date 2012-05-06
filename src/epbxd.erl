@@ -36,10 +36,26 @@ start(normal, Args) ->
 		cowboy_http_protocol, [{dispatch, Dispatch}]
 	),
 
+	% start SIP/UDP listener
+	% TODO: activation and port must be set via configuration file
+	cowboy:start_listener(udp, 10,
+		epbxd_udp_transport, [{port, 5061}],
+		epbxd_sip_protocol, []
+	),
+
+	% start SIP/TCP listener
+	% TODO
+	
+
 	%% NOTE: cannot debug until logging is initialized
 	?DEBUG("app:start",[]),
 	application:start(sasl),
+	% NOTE: replaced by cowboy handler
+	% TODO: we need to init mnesia & ETS tables somewhere
+	%
+	% return {ok, Pid} (of top supervisor)
 	epbxd_sup:start_link();
+	
 
 start(Type,_) ->
 	io:format("start2:"++Type),
