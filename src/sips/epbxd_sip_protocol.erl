@@ -19,7 +19,11 @@ init(ListenerPid, Socket, Transport, Opts) ->
 
 wait_request(Transport, Socket, Timeout) ->
 	case Transport:recv(Socket, 0, Timeout) of
-		{ok, Packet} -> parse_request(Transport, Socket, epbxd_sip_message:decode(Packet));
+		{ok, Packet} -> 
+			parse_request(Transport, Socket, epbxd_sip_message:decode(Packet)),
+			% looping until timeout
+			wait_request(Transport, Socket, Timeout);
+
 		_            -> terminate(Transport, Socket)
 	end.
 
