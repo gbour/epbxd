@@ -1,5 +1,6 @@
 .eunit
-deps
+ebin
+deps/*/
 priv
 *.o
 *.beam
