@@ -49,7 +49,6 @@ send(Message, Transport, Socket) ->
 %%TODO: peer ip/host MUST be in Via received= parameter
 -spec send(atom(), #sip_message{}, module(), tuple()) -> atom().
 send(udp, Message, Transport, CSock={_,Host,_}) ->
-	io:format(user, "~p~n", [Message]),
 	Port = via_port(udp, Message),
 
 	{ok, Sock} = gen_udp:open(0, [binary,{reuseaddr,true},{active,false}]),

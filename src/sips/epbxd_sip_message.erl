@@ -250,7 +250,6 @@ response(Type, #sip_message{headers=Headers}, CustomHeaders) ->
 headers_fmt([], Acc, #args_{custom=C})                       ->
 	lists:reverse(Acc) ++ C;
 headers_fmt([{Key, ExtraDS}|Tail], Acc, Args) ->
-	io:format(user, "## ~p~n",[Key]),
 	{Value, CustomHeaders} = header_fmt(custom, {Key,ExtraDS}, Args),
 	headers_fmt(Tail, [{Key, Value} | Acc], Args#args_{custom=CustomHeaders}).
 
