@@ -244,7 +244,7 @@ via_transport(_)      -> invalid.
 %%		<<"CSeq: 100 INVITE">> = iolist_to_binary(encode('CSeq', {100, <<"INVITE">>)).
 %%
 encode('CSeq', {Seq, Method}) ->
-	[<<"CSeq: ">>, utils:str(Seq), $\s, Method];
+	[<<"CSeq: ">>, utils:str(Seq), $\s, utils:bin(Method)];
 
 encode('Via', #sip_via{transport=T,host=H,port=Pt,params=P}) ->
 	[<<"Via: SIP/2.0/">>, via_transport(T), $\s, H, via_port(Pt), epbxd_sip_uri:encode(params,P)];

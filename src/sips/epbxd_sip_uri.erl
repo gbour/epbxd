@@ -176,7 +176,8 @@ params(encode, [], Acc)                  ->
 params(encode, [{Key, undefined} | Tail], Acc) ->
 	params(encode, Tail, [Acc, $;, Key]);
 params(encode, [{Key, Val} | Tail], Acc) ->
-	params(encode, Tail, [Acc, $;, Key, $=, Val]).
+	params(encode, Tail, [Acc, $;, utils:str(Key), $=, utils:str(Val)]).
+
 
 %% @doc Encode URI headers
 %% @private
