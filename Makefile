@@ -12,7 +12,7 @@ endif
 export CC BEAMDIR EFLAGS
 
 all: deps
-	mkdir -p ebin/modules
+	mkdir -p ebin/modules ebin/applications
 	@$(MAKE) -C src/
 
 deps:
