@@ -56,6 +56,19 @@ stop() ->
 %%
 -spec invite(tuple(), tuple(), any()) -> tuple(ok, any()).
 invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+	% create dialog for caller
+	Dialog = #sip_dialog{
+		callid = proplists:get_value('Call-ID', Headers),
+
+		origin  = 'peer',
+		request = 'INVITE',
+		status  = 'Trying',
+		peer    = (proplists:get_value('From', Headers))#sip_address.uri,
+		created = calendar:universal_time(),
+		updated = calendar:universal_time()
+	},
+	mnesia:dirty_write(dialogs, Dialog),
+
 	% 100 Trying
 	epbxd_sip_routing:send(
 		epbxd_sip_message:response(trying, Request),
