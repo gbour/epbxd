@@ -73,6 +73,7 @@
 		params  = [],
 		headers = []
 }).
+-type sip_uri() :: #sip_uri{}.
 
 %% Transaction
 -record(transaction, {
@@ -95,6 +96,31 @@
 	d_uri
 }).
 
+%% Dialog
+-type sip_request()       :: 'INVITE' | 'BYE' | 'CANCEL' | 'OPTIONS'.
+-type sip_dialog_origin() :: 'self' | 'peer'.
+-type sip_dialog_status() :: 'Trying' | 'Ringing' | 'OK' | sip_request().
+
+-record(sip_dialog, {
+	% for now, we use Call-ID as dialog key
+	%NOTE: may be completed with URI (id, host, port) AND to tag ?
+	callid     = <<>>         :: binary(),
+
+	% datas
+	% who initiate the dialog
+	origin     = 'self'       :: sip_dialog_origin(),
+	% which request initiate the dialog
+	request    = undefined    :: undefined | sip_request(),
+	% current status
+	status     = undefined    :: undefined | sip_dialog_status(),
+	% dialog peer (my be target)
+	peer       = undefined    :: undefined | sip_uri(),
+
+	% timestamps (output of calendar:unilocal_time()
+	created    = {}           :: tuple(),
+	updated    = {}           :: tuple()
+}).
+-type sip_dialog() :: #sip_dialog{}.
 
 
 % headers by order

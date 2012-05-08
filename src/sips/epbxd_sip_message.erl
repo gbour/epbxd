@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1, request/3, response/2, response/3]).
+-export([decode/1, encode/1, req2meth/1, request/4, response/2, response/3]).
 
 -ifdef(debug).
 	-export([decode/3, to/2]).
@@ -192,11 +192,13 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 %% REQUESTS
 %%
 
+req2meth(dial) -> 'INVITE'.
+
 %%
 %%
-request(dial, Registration=#registration{uri=Uri}, Request) ->
+request(dial, Registration=#registration{uri=Uri}, Request, #sip_dialog{callid=CallID}) ->
 	Uri2 = Uri#sip_uri{password=undefined,params=[],headers=[]},
-	Method = 'INVITE',
+	Method = req2meth(dial),
 	From = #sip_address{
 		displayname = "epbxd",
 		uri         = #sip_uri{scheme=sip,user="epbxd",host="localhost",port=5061,
@@ -216,13 +218,13 @@ request(dial, Registration=#registration{uri=Uri}, Request) ->
 
 	#sip_message{
 		type    = request,
-		method  = 'INVITE',
+		method  = Method,
 		uri     = Uri2,
 		headers = [
 			{'Via'           , [Via]},
 			{'From'          , From},
 			{'To'            , #sip_address{uri=Uri2}},
-			{'Call-ID'       , epbxd_sip_header:tag()},
+			{'Call-ID'       , CallID},
 			{'CSeq'          , {1, Method}},
 			{'User-agent'    , header('User-Agent')},
 			{'Contact' 			 , From}%,
