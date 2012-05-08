@@ -2,7 +2,7 @@
 -module(utils).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([title/1, binary_to_integer/1, int/1, atom/1, str/1]).
+-export([title/1, binary_to_integer/1, int/1, atom/1, str/1, bin/1]).
 
 % DEPRECATED
 binary_to_integer(Bin) ->
@@ -33,5 +33,16 @@ str(Val) when is_atom(Val)    ->
 str(Val) when is_integer(Val) ->
 	erlang:integer_to_list(Val);
 str(Val) when is_binary(Val)  ->
-	erlang:binary_to_list(Val).
+	erlang:binary_to_list(Val);
+% fallback: we keep value identical
+str(Val)                      ->
+	Val.
 
+%
+%
+bin(Val) when is_atom(Val)    ->
+	erlang:atom_to_binary(Val, latin1);
+bin(Val) when is_list(Val)    ->
+	erlang:list_to_binary(Val);
+bin(Val) when is_binary(Val)  ->
+	Val.
