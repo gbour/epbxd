@@ -39,7 +39,7 @@ runtestl: test
 	done
 
 clean:
-	rm -f $(BEAMDIR)/*.beam
+	rm -f `find $(BEAMDIR) -name "*.beam"`
 
 distclean: clean
 	@$(MAKE) -C deps/ clean
