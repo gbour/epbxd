@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1, response/2, response/3]).
+-export([decode/1, encode/1, request/3, response/2, response/3]).
 
 -ifdef(debug).
 	-export([decode/3, to/2]).
@@ -187,6 +187,52 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 	).
 	
 
+
+%% 
+%% REQUESTS
+%%
+
+%%
+%%
+request(dial, Registration=#registration{uri=Uri}, Request) ->
+	Uri2 = Uri#sip_uri{password=undefined,params=[],headers=[]},
+	Method = 'INVITE',
+	From = #sip_address{
+		displayname = "epbxd",
+		uri         = #sip_uri{scheme=sip,user="epbxd",host="localhost",port=5061,
+		                   params=[{transport,udp}]},
+		params      = [{tag, epbxd_sip_header:tag()}]
+	},
+
+	Via = #sip_via{
+		transport=udp,
+        %TODO: see in spec what is the host:port set in Via? source server or target client ?
+		%host="localhost",
+		%port=5061,
+		host=Uri#sip_uri.host,
+		port=Uri#sip_uri.port,
+		params=[{branch, "z9hG4bK"++epbxd_sip_header:tag()}]
+	},
+
+	#sip_message{
+		type    = request,
+		method  = 'INVITE',
+		uri     = Uri2,
+		headers = [
+			{'Via'           , [Via]},
+			{'From'          , From},
+			{'To'            , #sip_address{uri=Uri2}},
+			{'Call-ID'       , epbxd_sip_header:tag()},
+			{'CSeq'          , {1, Method}},
+			{'User-agent'    , header('User-Agent')},
+			{'Contact' 			 , From}%,
+%			{'Content-Type'  , "application/sdp"},
+%			{'Content-Length', erlang:byte_size(Content)}
+		]
+	}.
+
+
+
 %%
 %% RESPONSES
 %%
@@ -207,6 +253,8 @@ status(ringing)     ->
 status(ok)          ->
 	{200, "OK"};
 % 4XX
+status('forbidden') ->
+	{403, "Forbidden"};
 status('not-found') ->
 	{404, "Not found"}.
 
