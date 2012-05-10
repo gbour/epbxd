@@ -87,7 +87,7 @@ invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 			?DEBUG("Found endpoint: ~p", [Endpt]),
 			To = (proplists:get_value('To', Headers))#sip_address.uri#sip_uri.user,
 			Chan = #call_channel{
-				id = {},
+				id = epbxd_sip_header:tag(),
 				source = #call_peer{type='sip', peer=#sip_stub{
 					dialog    = Dialog,
 					socket    = Sock,
@@ -96,6 +96,7 @@ invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 				}},
 				target = undefined
 			},
+			mnesia:dirty_write(channels, Chan),
 
 			epbxd_dialplan:dispatcher(utils:bin(To), Chan);
 

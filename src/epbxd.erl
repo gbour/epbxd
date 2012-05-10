@@ -110,3 +110,13 @@ modules_load() ->
 		end, Filenames
 	).
 
+% Create system-wide tables
+create_tables() ->
+	mnesia:create_table(channels, [
+		{attributes , record_info(fields, call_channel)},
+		{record_name, call_channel}
+	]),
+
+	ok.
+
+
