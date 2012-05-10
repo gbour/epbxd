@@ -28,7 +28,9 @@
 
 %-type(string(), list(atom()|tuple(atom(),any())), #call_context{}, tuple()) -> atom().
 %NOTE: Account is binary
-exec(Account, Opts, Env=#call_context{channel=#call_channel{type=Type}, source={S,T}, request=R}) ->
+%NOTE: from now, we force type (sip): SHOULD be stored in registrations table
+exec(Account, Opts, Chan=#call_channel{source=Src}) ->
+	Type = 'sip',
 	io:format("app_dial: searching ~p/~p~n", [Type, Account]),
 
 	% search user
@@ -37,13 +39,13 @@ exec(Account, Opts, Env=#call_context{channel=#call_channel{type=Type}, source={
 	of
 		[Reg] ->
 			io:format(user, "found ~p~n",[Reg]),
-			?CALLBACK(Type):request('dial', Reg, Opts, Env);
+			?CALLBACK(Type):request('dial', Reg, Opts, Chan);
 
             
 
 		[]      ->
 			% not found. Use generic API to send not-found response
-			?CALLBACK(Type):response('not-found', Account, Opts, Env)
+			?CALLBACK(Src#call_peer.type):response('not-found', Account, Opts, Src#call_peer.peer)
 	end.
 			
 

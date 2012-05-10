@@ -86,15 +86,18 @@ invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 		[Endpt] ->
 			?DEBUG("Found endpoint: ~p", [Endpt]),
 			To = (proplists:get_value('To', Headers))#sip_address.uri#sip_uri.user,
+			Chan = #call_channel{
+				id = {},
+				source = #call_peer{type='sip', peer=#sip_stub{
+					dialog    = Dialog,
+					socket    = Sock,
+					transport = Transport,
+					ref       = Request
+				}},
+				target = undefined
+			},
 
-			epbxd_dialplan:dispatcher(
-				utils:bin(To),
-				#call_context{
-					channel=#call_channel{type=sip, from=User, to=To},
-					source={Sock, Transport},
-					request=Request
-				}
-			);
+			epbxd_dialplan:dispatcher(utils:bin(To), Chan);
 
 		[]      -> 
 			?DEBUG("Source endpoint not found",[]),

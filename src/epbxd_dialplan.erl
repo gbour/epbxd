@@ -26,10 +26,10 @@
 
 %% @doc Dispatch a call following dialplan routing
 %%
--spec dispatcher(binary(), #call_context{}) -> any().
-dispatcher(Extension, Context) ->
+-spec dispatcher(binary(), #call_channel{}) -> any().
+dispatcher(Extension, Channel) ->
 	io:format(user, "dialplan:dispatcher= ~p~n", [Extension]),
-	app_dial:exec(Extension, [], Context).
+	app_dial:exec(Extension, [], Channel).
 
 
 callback(sip) -> epbxd_sip_sig.

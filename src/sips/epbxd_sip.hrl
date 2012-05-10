@@ -1,4 +1,7 @@
 
+-ifndef(EPBXD_SIP_HRL).
+-define(EPBXD_SIP_HRL, 1).
+
 %% SIP server 
 -record(server  , {
 		iface=any,  %% interface name. eth0, vlan1, lo, any (all interfaces)
@@ -33,6 +36,8 @@
 }).
 
 %% endpoint registration record
+%% TODO: registration is not SIP specific
+%%       SHOULD contains a type field ('sip', ...) and placed in a more generic place
 -record(registration, {
 		name,
 %		proto = sip,iax,sccp
@@ -122,6 +127,14 @@
 }).
 -type sip_dialog() :: #sip_dialog{}.
 
+-record(sip_stub, {
+	dialog    = undefined :: undefined | sip_dialog(),
+
+	socket    = undefined,
+	transport = undefined,
+	ref       = undefined
+}).
+-type sip_stub() :: #sip_stub{}.
 
 % headers by order
 -define(HEADERS_ORDER, [
@@ -143,3 +156,4 @@
 %		{'Content-Length', default}
 	]).
 
+-endif.
