@@ -5,7 +5,7 @@
 -behaviour(application).
 -export([start/2, stop/1]).
 -include("utils.hrl").
--include("sips/sips.hrl").
+-include("epbxd_dialplan.hrl").
 
 -import(webservice).
 
@@ -21,6 +21,7 @@ start(normal, Args) ->
 	%%TODO: SHOULD create schema/table only if not exists
 	mnesia:create_schema([node()]),
 	mnesia:start(),
+	create_tables(),
 
 	% load modules
 	modules_load(),

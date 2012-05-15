@@ -18,6 +18,9 @@
 
 -record(call_channel, {
 	id     = {}        :: tuple(),
+	% active application
+	action = undefined :: undefined | atom(),
+
 	source = undefined :: undefined | call_peer(),
 	target = undefined :: undefined | call_peer()
 }).

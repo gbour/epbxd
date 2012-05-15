@@ -231,9 +231,10 @@ request(dial, Registration=#registration{uri=Uri}, Request, #sip_dialog{callid=C
 %			{'Content-Type'  , "application/sdp"},
 %			{'Content-Length', erlang:byte_size(Content)}
 		]
-	}.
+	};
 
-
+request(ack, Reg, Req, Dialog) ->
+	(request(dial, Reg, Req, Dialog))#sip_message{method='ACK'}.
 
 %%
 %% RESPONSES

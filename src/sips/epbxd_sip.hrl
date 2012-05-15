@@ -123,7 +123,10 @@
 
 	% timestamps (output of calendar:unilocal_time()
 	created    = {}           :: tuple(),
-	updated    = {}           :: tuple()
+	updated    = {}           :: tuple(),
+
+	% backreference
+	chanid     = undefined    :: undefined | integer()
 }).
 -type sip_dialog() :: #sip_dialog{}.
 

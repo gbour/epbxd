@@ -15,14 +15,14 @@
 %%	You should have received a copy of the GNU Affero General Public License
 %%	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-% @doc Handle SIP 200/OK responses
--module(mod_sip_ok).
+% @doc Handle SIP ACK request
+-module(mod_sip_ack).
 -author("Guillaume Bour <guillaume@bour.cc>").
 %-behaviour(gen_epbxd_module).
 
 % API
 % hooks
--export([ok/3]).
+-export([ack/3]).
 % gen_epbxd_module
 -export([start/0, stop/0]).
 
@@ -37,15 +37,8 @@
 %%
 -spec start() -> ok|fail.
 start() ->
-    %% create mnesia table 
-    %% (could be ETS, but we need to distribute data between all epbxd nodes)
-    mnesia:create_table(dialogs, [
-        {attributes , record_info(fields, sip_dialog)},
-        {record_name, sip_dialog}
-    ]),
-
 	% registering hooks
-	epbxd_hooks:add({sip,response,200}, {?MODULE, ok}),
+	epbxd_hooks:add({sip,request,'ACK'}, {?MODULE, ack}),
 	ok.
 
 %% @doc Stop module
@@ -54,16 +47,16 @@ start() ->
 %%
 -spec stop() -> ok|fail.
 stop() ->
-	epbxd_hooks:del({sip,response,200}, {?MODULE, ok}),
+	epbxd_hooks:del({sip,request,'ACK'}, {?MODULE, ack}),
 	ok.
 
 %% @doc SIP OK request hook
 %%
 %% Implement process described in RFC 3261, section 13.3.1
 %%
--spec ok(tuple(), tuple(), any()) -> tuple(ok, any()).
-ok(Key, {Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
-    io:format(user, "receive OK request~n",[]),
+-spec ack(tuple(), tuple(), any()) -> tuple(ok, any()).
+ack(Key, {Req=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+    io:format(user, "receive ACK request~n",[]),
 
     % Searching matching dialog
     CallID = proplists:get_value('Call-ID', Headers),
@@ -78,23 +71,7 @@ ok(Key, {Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 			[Chan] = mnesia:dirty_read(channels, Dialog#sip_dialog.chanid),
             io:format(user, "Channel= ~p~n", [Chan]),
 
-			case Chan#call_channel.action of
-				% INVITE action - the callee is OK to take call
-				'INVITE' ->
-					% Send OK to caller
-					Stub = Chan#call_channel.source#call_peer.peer,
-					OkResp = epbxd_sip_message:response(ok, Stub#sip_stub.ref),
-					io:format(user, "sending OK response to caller: ~p~n", [OkResp]),
-					epbxd_sip_routing:send(OkResp, epbxd_udp_transport, Stub#sip_stub.socket)
-				
-			end,
-
-			% send ACK to sender
-			[Reg] = mnesia:dirty_read(registrations, Dialog#sip_dialog.peer#sip_uri.user),
-			Req = epbxd_sip_message:request('ack', Reg, nil, Dialog),
-			epbxd_sip_routing:send(Req,
-				epbxd_udp_transport,{nil,Reg#registration.uri#sip_uri.host,nil}
-			),
+			% we got our final ACK: channel is fully established
             ok;
 
         []       ->

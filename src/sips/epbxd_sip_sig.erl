@@ -9,7 +9,7 @@ response(Type, Extension, Opts, #sip_stub{socket=S,transport=T,ref=R}) ->
 	io:format(user, "do response ~p: ~p~n", [Type, R]),
 	epbxd_sip_routing:send(epbxd_sip_message:response(Type, R), T, S).
 
-request(Type, Registration=#registration{uri=Uri}, Opts, Stub) ->
+request(Type, Registration=#registration{uri=Uri}, Opts, Channel) ->
 	% TODO: transport should be determined from target context (registrations Table)
 	T = 'epbxd_udp_transport',
 	io:format(user, "do request ~p: ~p ~n", [Type, T]),
@@ -24,10 +24,16 @@ request(Type, Registration=#registration{uri=Uri}, Opts, Stub) ->
 		status  = epbxd_sip_message:req2meth(Type),
 		peer    = Uri,
 		created = calendar:universal_time(),
-		updated = calendar:universal_time()
+		updated = calendar:universal_time(),
+
+		chanid  = Channel#call_channel.id
 	},
 	io:format(user, "INVITE Dialog= ~p~n", [Dialog]),
 	mnesia:dirty_write(dialogs, Dialog),
+	% MUST update channel to add target dialog 
+	mnesia:dirty_write(channels, Channel#call_channel{
+		target=#call_peer{type='sip', peer=#sip_stub{dialog=Dialog}}
+	}),
 
 	io:format(user, "~p~n", [epbxd_sip_message:request(Type, Registration,nil, Dialog)]),
 	epbxd_sip_routing:send(epbxd_sip_message:request(Type, Registration, nil, Dialog), T,
