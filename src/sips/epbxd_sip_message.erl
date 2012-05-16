@@ -234,7 +234,10 @@ request(dial, Registration=#registration{uri=Uri}, Request, #sip_dialog{callid=C
 	};
 
 request(ack, Reg, Req, Dialog) ->
-	(request(dial, Reg, Req, Dialog))#sip_message{method='ACK'}.
+	(request(dial, Reg, Req, Dialog))#sip_message{method='ACK'};
+
+request(bye, Reg, Req, Dialog) ->
+	(request(dial, Reg, Req, Dialog))#sip_message{method='BYE'}.
 
 %%
 %% RESPONSES
@@ -259,7 +262,10 @@ status(ok)          ->
 status('forbidden') ->
 	{403, "Forbidden"};
 status('not-found') ->
-	{404, "Not found"}.
+	{404, "Not found"};
+status('dont-exists') ->
+	{481, "Call/Transaction Does Not Exist"}.
+
 
 %% @doc Build a SIP response messages
 %%
