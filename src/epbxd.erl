@@ -62,7 +62,7 @@ start(Type,_) ->
 	{error, badarg}.
 
 
-stop(State) ->
+stop(_State) ->
 	ok.
 
 get_config_file() ->
@@ -97,16 +97,20 @@ ejabberd_connect() ->
 
 modules_load() ->
 	epbxd_hooks:start_link(),
-	code:add_path("./modules"),
 
-	{ok, Filenames} = file:list_dir("./modules"),
-	io:format("mods= ~p~n",[Filenames]),
+	% add modules paths to erlang search paths
+	code:add_paths(config:get(modules_paths)),
 
-	lists:foreach(fun(F) ->
-			[Mod|_] = string:tokens(F, "."),
-			io:format("Loading ~s module~n", [Mod]),
+	lists:foreach(fun({Mod, Opts}) ->
+			try Mod:start(Opts) of
+				_ -> ok
+			catch
+				_:_ ->
+					io:format(user, "Modules: cannot load *~p*~n", [Mod])
+			end
+		end,
+		config:get(modules)
+	),
 
-			(erlang:list_to_atom(Mod)):start()
-		end, Filenames
-	).
+	ok.
 

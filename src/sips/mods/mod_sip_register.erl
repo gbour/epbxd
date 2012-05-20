@@ -24,7 +24,7 @@
 % hooks
 -export([register/3]).
 % gen_epbxd_module
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
@@ -34,8 +34,8 @@
 %% Initialize module environment
 %% Install SIP REGISTER request hook
 %%
--spec start() -> ok|fail.
-start() ->
+-spec start(any()) -> ok|fail.
+start(Opts) ->
 	%% create mnesia tables
 	mnesia:create_table(registrations, 
 		[{attributes,record_info(fields,registration)},{record_name,registration}]),
