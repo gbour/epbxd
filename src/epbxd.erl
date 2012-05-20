@@ -9,10 +9,8 @@
 
 -import(webservice).
 
-start(normal, Args) ->
+start(normal, _Args) ->
 	config:load(get_config_file()),
-	logging:init(config:get(logfile)),
-	%%logging:loglevel(config:get("loglevel")),
 
 	% Set node cookie, Try to connect to local ejabberd
 	erlang:set_cookie(node(), get_cookie()),
