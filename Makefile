@@ -25,14 +25,14 @@ ebin/epbxd.app: src/epbxd.app
 	@sed -e 's/.*{config,.*/\t\t{config, "epbxd.cfg"}/' $< > $@
 
 ebin/epbxd.cfg: etc/epbxd.cfg
-	@sed -e 's/{logfile.*/{logfile, "epbxd.log"}./' \
-		   -e 's/{endpoints.*/{endpoints, [\n\t[{name, "100"}],\n\t[{name, "101"}],\n\t[{name, "102"}]/' \
-			 $< > $@
+	@sed -e 's/^\(.*mod_log_erlang.*filename,\)[^}]\+\(}.*\)$$/\1"epbxd.log"\2/' \
+	     -e 's/{endpoints.*/{endpoints, [\n\t[{name, "100"}],\n\t[{name, "101"}],\n\t[{name, "102"}]/' \
+	     $< > $@
 
 run: ebin/epbxd.app ebin/epbxd.cfg
 	cd ebin/ && erl -sname epbxd -pa ../deps/cowboy/ebin/ -pa applications/ -eval "application:start(epbxd)"
 
-runtestl: test
+runtest: test
 	for i in ebin/*_tests.beam; do \
 		j=$${i#ebin/}; j=$${j%_tests.beam}; \
 		erl -pa ebin/ -I src/sips/ -eval "eunit:test($$j,[verbose])." -s erlang halt; \

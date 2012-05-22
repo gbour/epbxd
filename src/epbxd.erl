@@ -9,10 +9,8 @@
 
 -import(webservice).
 
-start(normal, Args) ->
+start(normal, _Args) ->
 	config:load(get_config_file()),
-	logging:init(config:get(logfile)),
-	%%logging:loglevel(config:get("loglevel")),
 
 	% Set node cookie, Try to connect to local ejabberd
 	erlang:set_cookie(node(), get_cookie()),
@@ -63,7 +61,7 @@ start(Type,_) ->
 	{error, badarg}.
 
 
-stop(State) ->
+stop(_State) ->
 	ok.
 
 get_config_file() ->
@@ -98,18 +96,22 @@ ejabberd_connect() ->
 
 modules_load() ->
 	epbxd_hooks:start_link(),
-	code:add_path("./modules"),
 
-	{ok, Filenames} = file:list_dir("./modules"),
-	io:format("mods= ~p~n",[Filenames]),
+	% add modules paths to erlang search paths
+	code:add_paths(config:get(modules_paths)),
 
-	lists:foreach(fun(F) ->
-			[Mod|_] = string:tokens(F, "."),
-			io:format("Loading ~s module~n", [Mod]),
+	lists:foreach(fun({Mod, Opts}) ->
+			try Mod:start(Opts) of
+				_ -> ok
+			catch
+				_:_ ->
+					io:format(user, "Modules: cannot load *~p*~n", [Mod])
+			end
+		end,
+		config:get(modules)
+	),
 
-			(erlang:list_to_atom(Mod)):start()
-		end, Filenames
-	).
+	ok.
 
 % Create system-wide tables
 create_tables() ->
