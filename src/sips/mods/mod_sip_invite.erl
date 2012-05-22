@@ -24,7 +24,7 @@
 % hooks
 -export([invite/3]).
 % gen_epbxd_module
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
@@ -35,8 +35,8 @@
 %% Initialize module environment
 %% Install SIP INVITE request hook
 %%
--spec start() -> ok|fail.
-start() ->
+-spec start(list(any())) -> ok|fail.
+start(Opts) ->
 	% registering hooks
 	epbxd_hooks:add({sip,request,'INVITE'}, {?MODULE, invite}),
 	ok.
@@ -55,7 +55,7 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 -spec invite(tuple(), tuple(), any()) -> tuple(ok, any()).
-invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+invite({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 	% create dialog for caller
 	Dialog = #sip_dialog{
 		callid = proplists:get_value('Call-ID', Headers),
@@ -112,4 +112,4 @@ invite(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 			)
 	end,
 
-	{ok, done}.
+	{ok, Args, State}.

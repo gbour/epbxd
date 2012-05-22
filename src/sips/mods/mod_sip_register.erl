@@ -34,7 +34,7 @@
 %% Initialize module environment
 %% Install SIP REGISTER request hook
 %%
--spec start(any()) -> ok|fail.
+-spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	%% create mnesia tables
 	mnesia:create_table(registrations, 

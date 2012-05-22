@@ -24,7 +24,7 @@
 % hooks
 -export([bye/3]).
 % gen_epbxd_module
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
@@ -35,8 +35,8 @@
 %% Initialize module environment
 %% Install SIP 180/Ringing response hook
 %%
--spec start() -> ok|fail.
-start() ->
+-spec start(list(any())) -> ok|fail.
+start(Opts) ->
 	% registering hooks
 	epbxd_hooks:add({sip,request,'BYE'}, {?MODULE, bye}),
 	ok.
@@ -55,7 +55,7 @@ stop() ->
 %% Implement process described in RFC 3261
 %%
 -spec bye(tuple(), tuple(), any()) -> tuple(ok, any()).
-bye(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+bye({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
     io:format(user, "receive BYE request~n",[]),
 
     % Searching matching dialog
@@ -119,4 +119,4 @@ bye(Key, {Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
 			)
     end,
 
-	{ok, done}.
+	{ok, Args, State}.

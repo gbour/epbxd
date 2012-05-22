@@ -24,7 +24,7 @@
 % hooks
 -export([ok/3]).
 % gen_epbxd_module
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
@@ -35,8 +35,8 @@
 %% Initialize module environment
 %% Install SIP 200/OK response hook
 %%
--spec start() -> ok|fail.
-start() ->
+-spec start(list(any())) -> ok|fail.
+start(Opts) ->
     %% create mnesia table 
     %% (could be ETS, but we need to distribute data between all epbxd nodes)
     mnesia:create_table(dialogs, [
@@ -62,7 +62,7 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 -spec ok(tuple(), tuple(), any()) -> tuple(ok, any()).
-ok(Key, {Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+ok({Key, Priority}, Args={Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
     io:format(user, "receive OK request~n",[]),
 
     % Searching matching dialog
@@ -101,4 +101,4 @@ ok(Key, {Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
             io:format(user, "Dialog not found~n", [])
     end,
 
-	{ok, done}.
+	{ok, Args, State}.

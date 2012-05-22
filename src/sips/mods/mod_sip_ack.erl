@@ -24,7 +24,7 @@
 % hooks
 -export([ack/3]).
 % gen_epbxd_module
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
@@ -35,8 +35,8 @@
 %% Initialize module environment
 %% Install SIP 200/OK response hook
 %%
--spec start() -> ok|fail.
-start() ->
+-spec start(list(any())) -> ok|fail.
+start(Opts) ->
 	% registering hooks
 	epbxd_hooks:add({sip,request,'ACK'}, {?MODULE, ack}),
 	ok.
@@ -55,7 +55,7 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 -spec ack(tuple(), tuple(), any()) -> tuple(ok, any()).
-ack(Key, {Req=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+ack({Key, Priority}, Args={Req=#sip_message{headers=Headers}, Sock, Transport}, State) ->
     io:format(user, "receive ACK request~n",[]),
 
     % Searching matching dialog
@@ -78,4 +78,4 @@ ack(Key, {Req=#sip_message{headers=Headers}, Sock, Transport}, State) ->
             io:format(user, "Dialog not found~n", [])
     end,
 
-	{ok, done}.
+	{ok, Args, State}.
