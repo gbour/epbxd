@@ -32,7 +32,7 @@ ebin/epbxd.cfg: etc/epbxd.cfg
 run: ebin/epbxd.app ebin/epbxd.cfg
 	cd ebin/ && erl -sname epbxd -pa ../deps/cowboy/ebin/ -pa applications/ -eval "application:start(epbxd)"
 
-runtestl: test
+runtest: test
 	for i in ebin/*_tests.beam; do \
 		j=$${i#ebin/}; j=$${j%_tests.beam}; \
 		erl -pa ebin/ -I src/sips/ -eval "eunit:test($$j,[verbose])." -s erlang halt; \
