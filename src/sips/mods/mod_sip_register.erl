@@ -88,23 +88,28 @@ register({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Tra
 	% default registration expiry (in seconds)
 	Expires = 3600,
 
-	Response = case
-		mnesia:dirty_read(endpoints, User)
-	of
-		% Endpoint found. 200 OK
-		[Endpt] -> 
-				?DEBUG("Found endpoint: ~p", [Endpt]),
-
-				Contact = proplists:get_value('Contact', Headers),
-				mnesia:dirty_write(registrations,#registration{name=User,	uri=Contact#sip_address.uri}),
-
-				epbxd_sip_message:response(ok, Request, [{'Expires', 3600}]);
-
-		% 404 NOT FOUND
-		[]      -> 
-				?DEBUG("Endpoint not found. Returning 404",[]),
-				epbxd_sip_message:response('not-found', Request)
-	end,
+	Response = on_auth(epbxd_hooks:run(authent, {User, undefined, undefined}), Args, User),
 
 	epbxd_sip_routing:send(Response, Transport, Sock),
 	{ok, Args, State}.
+
+%% User found: 
+%%   register user context
+%%   send 200/OK response
+%%
+on_auth({stop, Endpt, _}, {Request=#sip_message{headers=Headers}, Sock, Transport}, User) ->
+	logging:log(debug, "Found endpoint: ~p", [Endpt]),
+
+	Contact = proplists:get_value('Contact', Headers),
+	mnesia:dirty_write(registrations,#registration{name=User,	uri=Contact#sip_address.uri}),
+
+	epbxd_sip_message:response(ok, Request, [{'Expires', 3600}]);
+
+%% User not found.
+%% Send 404/not found response
+%%
+on_auth({ok, _State}, {Request,_,_}, _User) ->
+	logging:log(debug, "Endpoint not found. Returning 404", []),
+
+	epbxd_sip_message:response('not-found', Request).
+
