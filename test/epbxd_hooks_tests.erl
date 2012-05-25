@@ -15,15 +15,15 @@ internal_hook(Pid, Name, Prio) ->
 	lists:nth(Prio, proplists:get_value(Name, get_state(Pid))).
 
 callback1({Name, Prio}, Args, State, _)  ->
-	{ok, Args++[{Name, Prio, callback1}], {State, {callback1, Prio, Args}}}.
+	{next, Args++[{Name, Prio, callback1}], {State, {callback1, Prio, Args}}}.
 
 callback2({Name, Prio}, Args, State, _)  ->
-	{ok, Args++[{Name, Prio, callback2}], {State, {callback2, Prio, Args}}}.
+	{next, Args++[{Name, Prio, callback2}], {State, {callback2, Prio, Args}}}.
 
 callback3({_Name, Prio}, Args, State, _) ->
 	case hd(Args) of
-		do_pass  ->
-			{pass, {State, {callback3, Prio, passed}}};
+		do_next  ->
+			{next, {State, {callback3, Prio, passed}}};
 
 		do_error ->
 			{error, because};
@@ -104,18 +104,18 @@ test_run_callbacks(_Pid) ->
 
 				% pass callback3 - execution continue with previous args
 				?_assertEqual({ok, {{{undefined,
-						{callback1, 50, [do_pass]}},
+						{callback1, 50, [do_next]}},
 						{callback3, 60, passed}},
 						% callback1/61 received Args as returned by callback1/50
-						{callback1, 61,	[do_pass, {hook12, 50, callback1}]}}},
-					epbxd_hooks:run(hook12, [do_pass])),
+						{callback1, 61,	[do_next, {hook12, 50, callback1}]}}},
+					epbxd_hooks:run(hook12, [do_next])),
 
 				% error on callback3 - halt execution with error
 				?_assertEqual({error, because, {60, {?MODULE, callback3}}},
 					epbxd_hooks:run(hook12, [do_error])),
 
 				% stop on callback3 - halt execution, returning State
-				?_assertEqual({stop, because, {60, {?MODULE, callback3}}},
+				?_assertEqual({ok, because, {60, {?MODULE, callback3}}},
 					epbxd_hooks:run(hook12, [do_stop])),
 
 				% validate hooks are receiving opts

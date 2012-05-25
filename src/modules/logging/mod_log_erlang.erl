@@ -54,9 +54,9 @@ stop() ->
 %% @doc 
 %%
 -spec log(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
-log({log, _Priority}, Args={Level, Format, Data}, State, _) ->
+log({log, _Priority}, {Level, Format, Data}, State, _) ->
 	log_(Level, Format, Data),
-	{ok, Args, State}.
+	{next, State}.
 
 -spec log_(atom(), string(), list(any())) -> ok|false.
 log_(fatal  , Format, Data) ->

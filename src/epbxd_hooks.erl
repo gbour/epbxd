@@ -126,16 +126,20 @@ run_([undefined | Tail], Hookname, Args, State, Prio) ->
 	run_(Tail, Hookname, Args, State, Prio+1);
 run_([{{Mod, Fun}, Opts} |Tail], Hookname, Args, State, Prio) ->
 	case Mod:Fun({Hookname, Prio}, Args, State, Opts) of
-		{ok   , Args2, State2}  ->
+        % continue to next callback, with Args as returned value
+		{next , Args2, State2}  ->
 			run_(Tail, Hookname, Args2, State2, Prio+1);
 
-		{pass, State3}          ->
-			run_(Tail, Hookname, Args, State3, Prio+1);
+        % continue to next callback, with Args as previous value
+        {next, State3}          ->
+			run_(Tail, Hookname, Args,  State3, Prio+1);
 
+        % stop callbacks execution (but not an error)
 		{stop , State3}         ->
-			{stop, State3, {Prio, {Mod, Fun}}};
+			{ok, State3, {Prio, {Mod, Fun}}};
 
-		{error, Reason}        ->
+        % stop execution, returning an error
+		{error, Reason}         ->
 			{error, Reason, {Prio, {Mod, Fun}}}
 	end.
 
