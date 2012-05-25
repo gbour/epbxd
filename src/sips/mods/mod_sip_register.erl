@@ -75,7 +75,7 @@ stop() ->
 %%TODO: compliance with RFC 3261#10.3
 %%TODO: implement authentication
 -spec register(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
-register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
+register(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 	epbxd_sip_routing:send(
 		epbxd_sip_message:response(trying, Request),
 		Transport, Sock
@@ -107,4 +107,4 @@ register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State
 	end,
 
 	epbxd_sip_routing:send(Response, Transport, Sock),
-	{ok, Args, State}.
+	{next, State}.
