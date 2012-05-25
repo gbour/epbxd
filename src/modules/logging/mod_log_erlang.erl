@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([log/3]).
+-export([log/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -39,7 +39,7 @@ start(Opts) ->
 	error_logger:logfile({open, proplists:get_value(filename, Opts)}),
 
 	% registering hooks
-	epbxd_hooks:add(log, proplists:get_value(priority, Opts), {?MODULE, log}),
+	epbxd_hooks:add(log, proplists:get_value(priority, Opts), {?MODULE, log}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -53,10 +53,10 @@ stop() ->
 
 %% @doc 
 %%
--spec log(tuple(), tuple(), any()) -> tuple(ok, any()).
-log({log, _Priority}, Args={Level, Format, Data}, State) ->
+-spec log(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
+log({log, _Priority}, {Level, Format, Data}, State, _) ->
 	log_(Level, Format, Data),
-	{ok, Args, State}.
+	{next, State}.
 
 -spec log_(atom(), string(), list(any())) -> ok|false.
 log_(fatal  , Format, Data) ->

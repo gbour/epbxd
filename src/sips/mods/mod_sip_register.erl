@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([register/3]).
+-export([register/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -46,7 +46,7 @@ start(Opts) ->
 	),
 
 	% registering hooks
-	epbxd_hooks:add({sip,request,'REGISTER'}, {?MODULE, register}),
+	epbxd_hooks:add({sip,request,'REGISTER'}, {?MODULE, register}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -74,8 +74,8 @@ stop() ->
 %%TODO: expire must be configurable (global + per endpoint)
 %%TODO: compliance with RFC 3261#10.3
 %%TODO: implement authentication
--spec register(tuple(), tuple(), any()) -> tuple(ok, any()).
-register({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+-spec register(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
+register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 	epbxd_sip_routing:send(
 		epbxd_sip_message:response(trying, Request),
 		Transport, Sock
@@ -89,9 +89,9 @@ register({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Tra
 	Expires = 3600,
 
 	Response = on_auth(epbxd_hooks:run(authent, {User, undefined, undefined}), Args, User),
-
 	epbxd_sip_routing:send(Response, Transport, Sock),
-	{ok, Args, State}.
+
+	{next, State}.
 
 %% User found: 
 %%   register user context
