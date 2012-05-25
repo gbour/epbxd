@@ -21,7 +21,7 @@
 -behaviour(gen_server).
 
 % API
--export([start_link/0, add/2, add/3, del/2, del/3, at/2, run/2]).
+-export([start_link/0, add/3, add/4, del/2, del/3, at/2, run/2]).
 % gen_server interface
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -39,11 +39,11 @@ start_link() ->
 %% @doc Add a new callback for a given Hook at default priority (50)
 %%
 %% @sample
-%%		add({sip,request,'INVITE'}, {sip_handler, invite}).
+%%		add({sip,request,'INVITE'}, {sip_handler, invite}, [{timeout, 42}]).
 %%
--spec add(any(), {atom(), atom()}) -> ok | error.
-add(Hookname, Callback) ->
-	gen_server:call(epbxd_hooks, {add, Hookname, ?DEFAULT_PRIORITY, Callback}).
+-spec add(any(), {atom(), atom()}, list()) -> ok | error.
+add(Hookname, Callback, Opts) ->
+	gen_server:call(epbxd_hooks, {add, Hookname, ?DEFAULT_PRIORITY, Callback, Opts}).
 
 %% @doc Add a new callback for given hook at given priority
 %%
@@ -53,9 +53,9 @@ add(Hookname, Callback) ->
 %% @args
 %%		Priority - from 1 to 100
 %%
--spec add(any(), integer(), {atom(), atom()}) -> ok|error.
-add(Hookname, Priority, Callback) when 1 =< Priority andalso Priority =< 100 ->
-	gen_server:call(epbxd_hooks, {add, Hookname, Priority, Callback}).
+-spec add(any(), integer(), {atom(), atom()}, list()) -> ok|error.
+add(Hookname, Priority, Callback, Opts) when 1 =< Priority andalso Priority =< 100 ->
+	gen_server:call(epbxd_hooks, {add, Hookname, Priority, Callback, Opts}).
 
 %% @doc Remove a callback associated with a Hook at default priority (50)
 %%
@@ -96,7 +96,11 @@ at(Hookname, Priority) when 1 =< Priority andalso Priority =< 100 ->
 	case gen_server:call(epbxd_hooks, {get, Hookname}) of
 		% Hookname not defined
 		undefined -> error;
-		Callbacks -> lists:nth(Priority, Callbacks)
+		Callbacks -> 
+			case lists:nth(Priority, Callbacks) of
+				{Callback, Opts} -> Callback;
+				_                -> undefined
+			end
 	end.
 
 %% @doc Execute callbacks associated with given hook
@@ -120,18 +124,22 @@ run_([], _Hookname, _Args, State, _Prio)              ->
 	{ok, State};
 run_([undefined | Tail], Hookname, Args, State, Prio) ->
 	run_(Tail, Hookname, Args, State, Prio+1);
-run_([{Mod, Fun} |Tail], Hookname, Args, State, Prio) ->
-	case Mod:Fun({Hookname, Prio}, Args, State) of
-		{ok   , Args2, State2}  ->
+run_([{{Mod, Fun}, Opts} |Tail], Hookname, Args, State, Prio) ->
+	case Mod:Fun({Hookname, Prio}, Args, State, Opts) of
+        % continue to next callback, with Args as returned value
+		{next , Args2, State2}  ->
 			run_(Tail, Hookname, Args2, State2, Prio+1);
 
-		{pass, State3}          ->
-			run_(Tail, Hookname, Args, State3, Prio+1);
+        % continue to next callback, with Args as previous value
+        {next, State3}          ->
+			run_(Tail, Hookname, Args,  State3, Prio+1);
 
+        % stop callbacks execution (but not an error)
 		{stop , State3}         ->
-			{stop, State3, {Prio, {Mod, Fun}}};
+			{ok, State3, {Prio, {Mod, Fun}}};
 
-		{error, Reason}        ->
+        % stop execution, returning an error
+		{error, Reason}         ->
 			{error, Reason, {Prio, {Mod, Fun}}}
 	end.
 
@@ -143,7 +151,7 @@ run_([{Mod, Fun} |Tail], Hookname, Args, State, Prio) ->
 init(_Args) ->
 	{ok, []}.
 
-handle_call({add, Hookname, Priority, Callback}, _From, State) ->
+handle_call({add, Hookname, Priority, Callback, Opts}, _From, State) ->
 	{Hooks2, State3} = case lists:keytake(Hookname, 1, State) of
 		{value, {Hookname, Hooks}, State2} ->
 			{Hooks, State2};
@@ -155,7 +163,7 @@ handle_call({add, Hookname, Priority, Callback}, _From, State) ->
 	{Head, [At | Tail]} = lists:split(Priority-1, Hooks2),
 	{Reply, Hooks3} = case At of
 		undefined ->
-			{ok, lists:append([Head, [Callback], Tail])};
+			{ok, lists:append([Head, [{Callback, Opts}], Tail])};
 
 		_         ->
 			{error, Hooks2}
@@ -168,11 +176,12 @@ handle_call({del, Hookname, Priority, Callback}, _From, State) ->
 		{value, {Hookname, Hooks}, State2} ->
 			{Head, [At | Tail]} = lists:split(Priority-1, Hooks),
 
-			% checking hook is matching
-			if
-				At == Callback ->
+			case At of
+				% hook callback is matching
+				{Callback, _} ->
 					[{Hookname, lists:append([Head, [undefined], Tail])} | State2];
-				true           ->
+
+				_        ->
 					State
 			end;
 
