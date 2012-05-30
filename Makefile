@@ -11,12 +11,14 @@ ifeq ($(MAKECMDGOALS),test)
 endif
 export CC BEAMDIR EFLAGS
 
-all: deps
-	mkdir -p ebin/modules
-	@$(MAKE) -C src/
+all: deps src
 
 deps:
 	@$(MAKE) -C deps/
+
+src:
+	mkdir -p ebin/modules
+	@$(MAKE) -C src/
 
 test: all
 	@$(MAKE) -C test/
@@ -44,5 +46,5 @@ clean:
 distclean: clean
 	@$(MAKE) -C deps/ clean
 
-.PHONY: deps
+.PHONY: deps src
 
