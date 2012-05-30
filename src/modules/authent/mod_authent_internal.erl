@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([authent/3]).
+-export([authent/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -35,7 +35,7 @@
 -spec start(any()) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add(authent, proplists:get_value(priority, Opts, 50), {?MODULE, authent}),
+	epbxd_hooks:add(authent, proplists:get_value(priority, Opts, 50), {?MODULE, authent}, []),
 	ok.
 
 %% @doc Stop module
@@ -50,8 +50,8 @@ stop() ->
 %% @doc 
 %%
 %%TODO: if user found, we must check password
--spec authent(tuple(), tuple(), any()) -> tuple(ok, any()).
-authent({authent, _Priority}, Args={User, Domain, Password}, State) ->
+-spec authent(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
+authent({authent, _}, {User, _Domain, _Password}, State, _) ->
 	case
 		mnesia:dirty_read(endpoints, User)
 	of
@@ -61,5 +61,5 @@ authent({authent, _Priority}, Args={User, Domain, Password}, State) ->
 
 		[]      ->
 			% user not found, lets try next hook handler
-			{pass, 'not-found'}
+			{next, State}
 	end.

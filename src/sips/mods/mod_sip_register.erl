@@ -98,8 +98,8 @@ register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State
 %%   register user context
 %%   send 200/OK response
 %%
-on_auth({stop, Endpt, _}, {Request=#sip_message{headers=Headers}, Sock, Transport}, User) ->
-	logging:log(debug, "Found endpoint: ~p", [Endpt]),
+on_auth({match, Endpt, {_, {Mod,Fun}}}, {Request=#sip_message{headers=Headers}, Sock, Transport}, User) ->
+	logging:log(debug, "Found endpoint (in ~p module): ~p", [Mod, Endpt]),
 
 	Contact = proplists:get_value('Contact', Headers),
 	mnesia:dirty_write(registrations,#registration{name=User,	uri=Contact#sip_address.uri}),
@@ -109,7 +109,7 @@ on_auth({stop, Endpt, _}, {Request=#sip_message{headers=Headers}, Sock, Transpor
 %% User not found.
 %% Send 404/not found response
 %%
-on_auth({ok, _State}, {Request,_,_}, _User) ->
+on_auth({nomatch, _}, {Request,_,_}, _User) ->
 	logging:log(debug, "Endpoint not found. Returning 404", []),
 
 	epbxd_sip_message:response('not-found', Request).
