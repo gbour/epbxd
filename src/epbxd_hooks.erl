@@ -74,7 +74,7 @@ new(Hookname, GOpts) ->
 %%		Opts			- list of anything. Are given to Callback when executed
 %%
 -spec add(any(), {atom(), atom()}, list()) -> ok | error.
-add(Hookname, Callback, Opts) ->
+add(Hookname, Callback={_,_}, Opts) ->
 	gen_server:call(epbxd_hooks, {add, Hookname, ?DEFAULT_PRIORITY, Callback, Opts}).
 
 %% @doc Add a new callback for given hook at given priority
@@ -86,7 +86,7 @@ add(Hookname, Callback, Opts) ->
 %%		Priority - from 1 to 100
 %%
 -spec add(any(), integer(), {atom(), atom()}, list()) -> ok|error.
-add(Hookname, Priority, Callback, Opts) when 1 =< Priority andalso Priority =< 100 ->
+add(Hookname, Priority, Callback={_,_}, Opts) when 1 =< Priority andalso Priority =< 100 ->
 	gen_server:call(epbxd_hooks, {add, Hookname, Priority, Callback, Opts}).
 
 %% @doc Remove a callback associated with a Hook at default priority (50)
