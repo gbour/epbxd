@@ -20,6 +20,10 @@ start(normal, _Args) ->
 	mnesia:create_schema([node()]),
 	mnesia:start(),
 
+	% initialize hooks
+	epbxd_hooks:start_link(),
+	logging:init([]),
+
 	% load modules
 	modules_load(),
 
@@ -94,8 +98,6 @@ ejabberd_connect() ->
 	end.
 
 modules_load() ->
-	epbxd_hooks:start_link(),
-
 	% add modules paths to erlang search paths
 	code:add_paths(config:get(modules_paths)),
 
