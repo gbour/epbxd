@@ -20,7 +20,9 @@ src:
 	mkdir -p ebin/modules
 	@$(MAKE) -C src/
 
-test: all
+test: all tsrc
+
+tsrc:
 	@$(MAKE) -C test/
 
 ebin/epbxd.app: src/epbxd.app
@@ -47,5 +49,5 @@ clean:
 distclean: clean
 	@$(MAKE) -C deps/ clean
 
-.PHONY: deps src
+.PHONY: deps src tsrc
 
