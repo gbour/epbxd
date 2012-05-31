@@ -28,6 +28,7 @@ ebin/epbxd.app: src/epbxd.app
 
 ebin/epbxd.cfg: etc/epbxd.cfg
 	@sed -e 's/^\(.*mod_log_erlang.*filename,\)[^}]\+\(}.*\)$$/\1"epbxd.log"\2/' \
+		 -e 's/^\(.*mod_authent_file.*filename,\)[^}]\+\(}.*\)$$/\1"users.auth"\2/' \
 	     -e 's/{endpoints.*/{endpoints, [\n\t[{name, "100"}],\n\t[{name, "101"}],\n\t[{name, "102"}]/' \
 	     $< > $@
 
