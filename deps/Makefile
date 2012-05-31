@@ -2,7 +2,7 @@
 PATH    := $(PATH):$(shell pwd)/rebar
 export PATH
 
-all: rebar cowboy jsonerl
+all: rebar cowboy jsonerl meck
 
 rebar:
 	if [ ! -d rebar ]; then\
@@ -21,6 +21,13 @@ cowboy:
 jsonerl:
 	if [ ! -d $@ ]; then\
 		git clone https://github.com/lambder/jsonerl.git;\
+	fi
+	cd $@ && git pull --rebase
+	@$(MAKE) -C $@/
+
+meck:
+	if [ ! -d $@ ]; then\
+		git clone https://github.com/eproxus/meck;\
 	fi
 	cd $@ && git pull --rebase
 	@$(MAKE) -C $@/
