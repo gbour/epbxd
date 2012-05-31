@@ -1,16 +1,16 @@
 
 SRC     = $(wildcard *.erl)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = sips sdp modules
+SUBDIRS = 
 
 
 all: subdirs $(BEAMS)
 
 subdirs:
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir; \
+		$(MAKE) -e -C $$dir; \
 	done
 
 $(BEAMDIR)/%.beam: %.erl
-	$(CC) $(EFLAGS) -o $(BEAMDIR) $<
+	$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
 
