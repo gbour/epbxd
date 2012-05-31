@@ -40,16 +40,18 @@ start(Opts) ->
 
 %% @doc Stop module
 %%
-%% Uninstall hooks
+%% Uninstall authent hook
 %%
 -spec stop() -> ok|fail.
 stop() ->
 	epbxd_hooks:del(authent, {?MODULE, authent}),
 	ok.
 
-%% @doc 
+%% @doc Authenticate a user using Internal mnesia database
 %%
-%%TODO: if user found, we must check password
+%% @note
+%%      at now, Domain and Password are ignored
+%%
 -spec authent(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
 authent({authent, _}, {User, _Domain, _Password}, State, _) ->
 	case
