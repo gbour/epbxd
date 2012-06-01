@@ -1,7 +1,7 @@
 
 SRC     = $(wildcard *.erl)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = logging authent
+SUBDIRS =
 
 all: subdirs $(BEAMS)
 

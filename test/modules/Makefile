@@ -1,16 +1,16 @@
 
 SRC     = $(wildcard *.erl)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = logging authent
+SUBDIRS = 
+
 
 all: subdirs $(BEAMS)
 
 subdirs:
-	@for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir; \
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -e -C $$dir; \
 	done
 
 $(BEAMDIR)/%.beam: %.erl
-	@$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
+	$(CC) $(EFLAGS) -o $(BEAMDIR)/modules $<
 
-.PHONY: all subdirs

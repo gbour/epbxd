@@ -9,7 +9,10 @@
 -module(logging).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([log/3]).
+-export([init/1, log/3]).
+
+init(_Opts) ->
+	epbxd_hooks:new(log, []).
 
 loglevel(Level) ->
 	false.

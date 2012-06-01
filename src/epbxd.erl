@@ -21,6 +21,9 @@ start(normal, _Args) ->
 	mnesia:start(),
 	create_tables(),
 
+	% initialize hooks
+	hooks_init(),
+
 	% load modules
 	modules_load(),
 
@@ -94,9 +97,15 @@ ejabberd_connect() ->
 		_    -> fail
 	end.
 
-modules_load() ->
+hooks_init() ->
 	epbxd_hooks:start_link(),
 
+	logging:init([]),
+	epbxd_hooks:new(authent, [{onstop,match},{onlast,nomatch}]),
+
+	ok.
+
+modules_load() ->
 	% add modules paths to erlang search paths
 	code:add_paths(config:get(modules_paths)),
 
