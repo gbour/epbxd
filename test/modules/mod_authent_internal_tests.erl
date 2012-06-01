@@ -72,6 +72,6 @@ mod_authent_internal_test_() ->
         fun(_) ->
             [
                 {"Internal authentication (mnesia)", authent_unit_test("internal")}
-            ]p
+            ]
         end
     }.
