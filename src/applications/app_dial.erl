@@ -24,7 +24,7 @@
 % API
 -export([exec/3]).
 
--include("epbxd_dialplan.hrl").
+-include("epbxd_channel.hrl").
 
 %-type(string(), list(atom()|tuple(atom(),any())), #call_context{}, tuple()) -> atom().
 %NOTE: Account is binary
@@ -33,20 +33,9 @@ exec(Account, Opts, Chan=#call_channel{source=Src}) ->
 	Type = 'sip',
 	io:format("app_dial: searching ~p/~p~n", [Type, Account]),
 
-	% search user
-	case
-		mnesia:dirty_read(registrations, utils:str(Account))
-	of
-		[Reg] ->
-			io:format(user, "found ~p~n",[Reg]),
-			?CALLBACK(Type):request('dial', Reg, Opts, Chan);
-
-            
-
-		[]      ->
-			% not found. Use generic API to send not-found response
-			?CALLBACK(Src#call_peer.type):response('not-found', Account, Opts, Src#call_peer.peer)
-	end.
+	epbxd_channel:dial({Type,Account}, Chan, Opts).
+	% not found. Use generic API to send not-found response
+	%?CALLBACK(Src#call_peer.type):response('not-found', Account, Opts, Src#call_peer.peer)
 			
 
 %hangup(Context) ->

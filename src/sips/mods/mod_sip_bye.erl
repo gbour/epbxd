@@ -28,7 +28,7 @@
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
--include("epbxd_dialplan.hrl").
+-include("epbxd_channel.hrl").
 
 %% @doc Start module
 %%
@@ -78,22 +78,14 @@ bye(_, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
 					% Send BYE to peer
 					% NOTE: peer may be target OR source!!!
 					%
-					Stub =
+					Peer =
 						if Dialog =:= Chan#call_channel.source#call_peer.peer#sip_stub.dialog ->
-							Chan#call_channel.target#call_peer.peer;
+							Chan#call_channel.target;
 						true ->
-							Chan#call_channel.source#call_peer.peer
+							Chan#call_channel.source
 						end,
-					io:format(user, "Stub= ~p~n", [Stub]),
-
-					[Reg] = mnesia:dirty_read(registrations,
-						Stub#sip_stub.dialog#sip_dialog.peer#sip_uri.user
-					),
-					epbxd_sip_routing:send(
-						epbxd_sip_message:request(bye, Reg, nil, Stub#sip_stub.dialog),
-						epbxd_udp_transport, {nil,Reg#registration.uri#sip_uri.host,nil}
-					)
-
+					io:format(user, "Peer= ~p~n", [Peer]),
+					epbxd_channel:hangup(Peer, [])
 			end,
 
 			% send OK to originator

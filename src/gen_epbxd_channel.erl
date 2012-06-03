@@ -15,37 +15,30 @@
 %%	You should have received a copy of the GNU Affero General Public License
 %%	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-% @doc Dialplan handling
--module(epbxd_dialplan).
+% @doc Modules behaviour specification
+-module(gen_epbxd_channel).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([dispatcher/2]).
+-export([behaviour_info/1]).
 
--include("epbxd_dialplan.hrl").
--include("epbxd_channel.hrl").
-
-%% @doc Dispatch a call following dialplan routing
+%% @doc Define modules API
 %%
--spec dispatcher(binary(), #call_channel{}) -> any().
-dispatcher(Extension, Channel) ->
-	io:format(user, "dialplan:dispatcher= ~p~n", [Extension]),
-	app_dial:exec(Extension, [], Channel).
+-spec behaviour_info(any()) -> undefined | list({atom(), integer()}).
+behaviour_info(callbacks) ->
+    [
+        % actions
+        {dial  , 2}, 
+        {ring  , 2}, 
+        {accept, 2}, 
+        {hangup, 2},
 
+		% events
+		{on_called  , 2},
+		{on_ringing , 2},
+		{on_answered, 2},
+		{on_hanguped, 2}
+    ];
+behaviour_info(_Other)    ->
+	undefined.
 
-%internal(<<"140">>, Context) ->
-%	io:format("140~n",[]);
-%
-%internal(Ext= <<"1",_:2/binary>>, Context) ->
-%	io:format("match ~p~n",[Ext]),
-%	app:dial(Ext, Context);
-%
-%%%
-%%% T between 0 and 5
-%%% 1XX4[0-5]
-%internal(Ext= <<"1",_:2/binary,"4",T>>, Context) when T >= $0, T =< 53 -> 
-%	io:format("4 match= ~p ~p~n", [Ext,T]);
-%
-%internal(_, Context) ->
-%	io:format("fallback catcher~n",[]),
-%	app:hangup(Context).

@@ -28,7 +28,7 @@
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
--include("epbxd_dialplan.hrl").
+-include("epbxd_channel.hrl").
 
 %% @doc Start module
 %%
@@ -83,11 +83,7 @@ ok(_, {_Resp=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
 				% INVITE action - the callee is OK to take call
 				'INVITE' ->
 					% Send OK to caller
-					Stub = Chan#call_channel.source#call_peer.peer,
-					OkResp = epbxd_sip_message:response(ok, Stub#sip_stub.ref),
-					io:format(user, "sending OK response to caller: ~p~n", [OkResp]),
-					epbxd_sip_routing:send(OkResp, epbxd_udp_transport, Stub#sip_stub.socket)
-				
+					epbxd_channel:accept(Chan#call_channel.source, [])
 			end,
 
 			% send ACK to sender

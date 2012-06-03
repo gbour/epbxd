@@ -28,7 +28,7 @@
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
--include("epbxd_dialplan.hrl").
+-include("epbxd_channel.hrl").
 
 %% @doc Start module
 %%
@@ -103,7 +103,18 @@ invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 			mnesia:dirty_write(channels, Chan),
 			mnesia:dirty_write(dialogs , Dialog#sip_dialog{chanid=Id}),
 
-			epbxd_dialplan:dispatcher(utils:bin(To), Chan);
+			case
+				epbxd_dialplan:dispatcher(utils:bin(To), Chan)
+			of
+				{error, not_found} ->
+					epbxd_sip_routing:send(
+						epbxd_sip_message:response('not-found', Request),
+						Transport, Sock
+					);
+
+				_				   ->
+					pass
+			end;
 
 		[]      -> 
 			?DEBUG("Source endpoint not found",[]),
