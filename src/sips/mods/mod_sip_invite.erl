@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([invite/3]).
+-export([invite/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -38,7 +38,8 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add({sip,request,'INVITE'}, {?MODULE, invite}),
+	epbxd_hooks:new({sip,request,'INVITE'}, []),
+	epbxd_hooks:add({sip,request,'INVITE'}, {?MODULE, invite}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -54,8 +55,8 @@ stop() ->
 %%
 %% Implement process described in RFC 3261, section 13.3.1
 %%
--spec invite(tuple(), tuple(), any()) -> tuple(ok, any()).
-invite({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+-spec invite(tuple(), tuple(), any(), list()) -> tuple(next, any()).
+invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 	% create dialog for caller
 	Dialog = #sip_dialog{
 		callid = proplists:get_value('Call-ID', Headers),
@@ -112,4 +113,4 @@ invite({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Trans
 			)
 	end,
 
-	{ok, Args, State}.
+	{next, State}.

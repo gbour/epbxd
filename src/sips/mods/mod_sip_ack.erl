@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([ack/3]).
+-export([ack/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -38,7 +38,8 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add({sip,request,'ACK'}, {?MODULE, ack}),
+	epbxd_hooks:new({sip,request,'ACK'}, []),
+	epbxd_hooks:add({sip,request,'ACK'}, {?MODULE, ack}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -54,8 +55,8 @@ stop() ->
 %%
 %% Implement process described in RFC 3261, section 13.3.1
 %%
--spec ack(tuple(), tuple(), any()) -> tuple(ok, any()).
-ack({Key, Priority}, Args={Req=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+-spec ack(tuple(), tuple(), any(), list()) -> tuple(next, any()).
+ack(_, {_Req=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
     io:format(user, "receive ACK request~n",[]),
 
     % Searching matching dialog
@@ -78,4 +79,4 @@ ack({Key, Priority}, Args={Req=#sip_message{headers=Headers}, Sock, Transport}, 
             io:format(user, "Dialog not found~n", [])
     end,
 
-	{ok, Args, State}.
+	{next, State}.

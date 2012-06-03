@@ -75,7 +75,7 @@ stop() ->
 %%TODO: expire must be configurable (global + per endpoint)
 %%TODO: compliance with RFC 3261#10.3
 %%TODO: implement authentication
--spec register(tuple(), tuple(), any(), list()) -> tuple(ok, any()).
+-spec register(tuple(), tuple(), any(), list()) -> tuple(next, any()).
 register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 	epbxd_sip_routing:send(
 		epbxd_sip_message:response(trying, Request),
@@ -87,7 +87,7 @@ register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State
 	?DEBUG("SIP:REGISTER= loopkup ~s endpoint", [User]),
 
 	% default registration expiry (in seconds)
-	Expires = 3600,
+	_Expires = 3600,
 
 	Response = on_auth(epbxd_hooks:run(authent, {User, undefined, undefined}), Args, User),
 	epbxd_sip_routing:send(Response, Transport, Sock),
@@ -98,7 +98,7 @@ register(_, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State
 %%   register user context
 %%   send 200/OK response
 %%
-on_auth({match, Endpt, {_, {Mod,Fun}}}, {Request=#sip_message{headers=Headers}, Sock, Transport}, User) ->
+on_auth({match, Endpt, {_, {Mod,_Fun}}}, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, User) ->
 	logging:log(debug, "Found endpoint (in ~p module): ~p", [Mod, Endpt]),
 
 	Contact = proplists:get_value('Contact', Headers),

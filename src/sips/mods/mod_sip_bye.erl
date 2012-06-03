@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([bye/3]).
+-export([bye/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -38,7 +38,8 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add({sip,request,'BYE'}, {?MODULE, bye}),
+	epbxd_hooks:new({sip,request,'BYE'}, []),
+	epbxd_hooks:add({sip,request,'BYE'}, {?MODULE, bye}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -54,8 +55,8 @@ stop() ->
 %%
 %% Implement process described in RFC 3261
 %%
--spec bye(tuple(), tuple(), any()) -> tuple(ok, any()).
-bye({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+-spec bye(tuple(), tuple(), any(), list()) -> tuple(next, any()).
+bye(_, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
     io:format(user, "receive BYE request~n",[]),
 
     % Searching matching dialog
@@ -119,4 +120,4 @@ bye({Key, Priority}, Args={Request=#sip_message{headers=Headers}, Sock, Transpor
 			)
     end,
 
-	{ok, Args, State}.
+	{next, State}.

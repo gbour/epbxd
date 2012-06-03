@@ -22,7 +22,7 @@
 
 % API
 % hooks
--export([ringing/3]).
+-export([ringing/4]).
 % gen_epbxd_module
 -export([start/1, stop/0]).
 
@@ -38,7 +38,8 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add({sip,response,180}, {?MODULE, ringing}),
+	epbxd_hooks:new({sip,response,180}, []),
+	epbxd_hooks:add({sip,response,180}, {?MODULE, ringing}, Opts),
 	ok.
 
 %% @doc Stop module
@@ -54,8 +55,8 @@ stop() ->
 %%
 %% Implement process described in RFC 3261
 %%
--spec ringing(tuple(), tuple(), any()) -> tuple(ok, any()).
-ringing({Key, Priority}, Args={Resp=#sip_message{headers=Headers}, Sock, Transport}, State) ->
+-spec ringing(tuple(), tuple(), any(), list()) -> tuple(next, any()).
+ringing(_, {_Resp=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
     io:format(user, "receive Ringing request~n",[]),
 
     % Searching matching dialog
@@ -95,4 +96,4 @@ ringing({Key, Priority}, Args={Resp=#sip_message{headers=Headers}, Sock, Transpo
             io:format(user, "Dialog not found~n", [])
     end,
 
-	{ok, Args, State}.
+	{next, State}.
