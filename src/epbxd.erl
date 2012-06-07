@@ -115,8 +115,8 @@ modules_load() ->
 			try Mod:start(Opts) of
 				_ -> ok
 			catch
-				_:_ ->
-					io:format(user, "Modules: cannot load *~p*~n", [Mod])
+				_:Reason ->
+					io:format(user, "Modules: cannot load *~p* (~p)~n", [Mod, Reason])
 			end
 		end,
 		config:get(modules)
