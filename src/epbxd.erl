@@ -6,6 +6,7 @@
 -export([start/2, stop/1]).
 -include("utils.hrl").
 -include("epbxd_dialplan.hrl").
+-include("epbxd_channel.hrl").
 
 -import(webservice).
 
