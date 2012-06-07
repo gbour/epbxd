@@ -38,7 +38,6 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:new({sip,response,180}, []),
 	epbxd_hooks:add({sip,response,180}, {?MODULE, ringing}, Opts),
 	ok.
 

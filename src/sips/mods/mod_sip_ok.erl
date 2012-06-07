@@ -45,7 +45,6 @@ start(Opts) ->
     ]),
 
 	% registering hooks
-	epbxd_hooks:new({sip,response,200}, []),
 	epbxd_hooks:add({sip,response,200}, {?MODULE, ok}, Opts),
 	ok.
 

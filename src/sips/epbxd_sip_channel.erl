@@ -21,13 +21,24 @@
 
 % API
 -behaviour(gen_epbxd_channel).
--export([dial/3, ring/2, accept/2, hangup/2]).
+-export([init/1, dial/3, ring/2, accept/2, hangup/2]).
 %-export([on_called/2, on_ringing/2, on_answered/2, on_hanguped/2]).
 
 -include("epbxd_channel.hrl").
 
 %% @doc 
 %%
+init(_Opts) ->
+	% create SIP hooks
+	epbxd_hooks:new({sip,request,'REGISTER'}, []),
+	epbxd_hooks:new({sip,request,'INVITE'}, []),
+	epbxd_hooks:new({sip,request,'ACK'}, []),
+	epbxd_hooks:new({sip,request,'BYE'}, []),
+	epbxd_hooks:new({sip,response,180}, []),
+	epbxd_hooks:new({sip,response,200}, []),
+
+	ok.
+
 -spec dial(call_peer(), string(), list()) -> ok | {error, atom()}.
 dial(_From, To, Opts) ->
 	case

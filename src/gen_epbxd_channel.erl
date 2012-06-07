@@ -26,19 +26,21 @@
 %%
 -spec behaviour_info(any()) -> undefined | list({atom(), integer()}).
 behaviour_info(callbacks) ->
-    [
-        % actions
-        {dial  , 2}, 
-        {ring  , 2}, 
-        {accept, 2}, 
-        {hangup, 2},
+	[
+		{init  , 1},
+
+		% actions
+		{dial  , 2},
+		{ring  , 2},
+		{accept, 2},
+		{hangup, 2},
 
 		% events
 		{on_called  , 2},
 		{on_ringing , 2},
 		{on_answered, 2},
 		{on_hanguped, 2}
-    ];
+	];
 behaviour_info(_Other)    ->
 	undefined.
 

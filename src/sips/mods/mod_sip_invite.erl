@@ -38,7 +38,6 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:new({sip,request,'INVITE'}, []),
 	epbxd_hooks:add({sip,request,'INVITE'}, {?MODULE, invite}, Opts),
 	ok.
 

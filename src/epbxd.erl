@@ -102,6 +102,7 @@ hooks_init() ->
 
 	logging:init([]),
 	epbxd_hooks:new(authent, [{onstop,match},{onlast,nomatch}]),
+	epbxd_sip_channel:init([]),
 
 	ok.
 
