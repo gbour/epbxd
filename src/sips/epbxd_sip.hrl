@@ -81,7 +81,7 @@
 -type sip_uri() :: #sip_uri{}.
 
 %% Transaction
--record(transaction, {
+-record(transaction_old, {
 	key,
 
 	% source
@@ -99,6 +99,22 @@
 	d_state,
 	d_msg,
 	d_uri
+}).
+
+-record(transaction, {
+	key = {undefined,undefined},		% {Method, Branch}
+
+	% RTT. Default to 500ms
+	t1      = 500,
+	timerA  = infinity,
+	% 64*T1 == 32secs
+	timerB  = 32000,
+	%
+	timerD  = 0,
+	request = undefined,
+
+	fsm     = undefined,
+	fsmid   = undefined
 }).
 
 %% Dialog

@@ -2,7 +2,7 @@
 -module(utils).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([title/1, binary_to_integer/1, int/1, atom/1, str/1, bin/1]).
+-export([title/1, binary_to_integer/1, int/1, atom/1, str/1, bin/1, list/1]).
 
 % DEPRECATED
 binary_to_integer(Bin) ->
@@ -46,3 +46,6 @@ bin(Val) when is_list(Val)    ->
 	erlang:list_to_binary(Val);
 bin(Val) when is_binary(Val)  ->
 	Val.
+
+list(Val) when is_tuple(Val)  ->
+	erlang:tuple_to_list(Val).

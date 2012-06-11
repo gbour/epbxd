@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([send/3]).
+-export([send/3, is_reliable/1, transport/1]).
 
 -include("epbxd_sip.hrl").
 
@@ -98,3 +98,9 @@ via_port(Proto, #sip_message{headers=Headers}) ->
 default_port(udp) -> 5060;
 default_port(tcp) -> 5060;
 default_port(tls) -> 5061.
+
+is_reliable(udp) -> false;
+is_reliable(tcp) -> true;
+is_reliable(tls) -> true.
+
+transport(udp) -> epbxd_udp_transport.

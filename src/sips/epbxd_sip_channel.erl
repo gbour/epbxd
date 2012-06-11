@@ -37,6 +37,7 @@ init(_Opts) ->
 	epbxd_hooks:new({sip,response,180}, []),
 	epbxd_hooks:new({sip,response,200}, []),
 
+	epbxd_sip_transaction:init([]),
 	ok.
 
 -spec dial(call_peer(), string(), list()) -> ok | {error, atom()}.
@@ -76,7 +77,7 @@ response(Type, #sip_stub{socket=S,transport=T,ref=R}) ->
 
 request(Type, Registration=#registration{uri=Uri}, _Opts, Channel) ->
 	% TODO: transport should be determined from target context (registrations Table)
-	T = 'epbxd_udp_transport',
+	T = epbxd_udp_transport,
 	io:format(user, "do request ~p: ~p ~n", [Type, T]),
 
 	% create dialog for called peer
@@ -96,7 +97,7 @@ request(Type, Registration=#registration{uri=Uri}, _Opts, Channel) ->
 	mnesia:dirty_write(dialogs, Dialog),
 
 	io:format(user, "~p~n", [epbxd_sip_message:request(Type, Registration,nil, Dialog)]),
-	epbxd_sip_routing:send(epbxd_sip_message:request(Type, Registration, nil, Dialog), T,
+	epbxd_sip_transaction:send(epbxd_sip_message:request(Type, Registration, nil, Dialog), T,
 		{undefined,Registration#registration.uri#sip_uri.host,undefined}
 	),
 

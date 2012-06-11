@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1, req2meth/1, request/4, response/2, response/3]).
+-export([decode/1, encode/1, req2meth/1, request/4, response/2, response/3, response_type/1]).
 
 -ifdef(debug).
 	-export([decode/3, to/2]).
@@ -378,3 +378,20 @@ header('User-Agent') ->
 	"Epbxd";
 header(_) ->
 	undefined.
+
+
+%
+%
+%
+response_type(Code) when Code >= 100 andalso Code < 200 ->
+	provisional;
+response_type(200) ->
+	successful;
+response_type(Code) when Code >= 300 andalso Code < 400 ->
+	redirection;
+response_type(Code) when Code >= 400 andalso Code < 500 ->
+	request_failure;
+response_type(Code) when Code >= 500 andalso Code < 600 ->
+	server_failure;
+response_type(Code) when Code >= 600 andalso Code < 700 ->
+	global_failure.
