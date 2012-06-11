@@ -2,7 +2,7 @@
 PATH    := $(PATH):$(shell pwd)/rebar
 export PATH
 
-all: rebar cowboy jsonerl meck
+all: rebar cowboy jsonerl poolboy meck
 
 rebar:
 	if [ ! -d rebar ]; then\
@@ -25,6 +25,13 @@ jsonerl:
 	cd $@ && git pull --rebase
 	@$(MAKE) -C $@/
 
+poolboy:
+	if [ ! -d $@ ]; then\
+		git clone https://github.com/gbour/poolboy;\
+	fi
+	cd $@ && git pull --rebase
+	@$(MAKE) -C $@/
+
 meck:
 	if [ ! -d $@ ]; then\
 		git clone https://github.com/eproxus/meck;\
@@ -35,4 +42,4 @@ meck:
 clean:
 	find ./* -prune -type d -exec rm -Rf '{}' \;
 
-.PHONY: rebar cowboy jsonerl
+.PHONY: rebar cowboy jsonerl poolboy meck
