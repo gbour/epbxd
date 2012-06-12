@@ -5,6 +5,7 @@
 -behaviour(application).
 -export([start/2, stop/1]).
 -include("utils.hrl").
+-include("epbxd_channel.hrl").
 -include("epbxd_dialplan.hrl").
 
 -import(webservice).
