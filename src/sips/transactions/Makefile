@@ -1,7 +1,7 @@
 
 SRC     = $(wildcard *.erl)
 BEAMS   = $(patsubst %.erl,$(BEAMDIR)/%.beam,$(SRC))
-SUBDIRS = mods transactions
+SUBDIRS =
 
 all: subdirs $(BEAMS)
 

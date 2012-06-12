@@ -15,8 +15,8 @@
 %%	You should have received a copy of the GNU Affero General Public License
 %%	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-% @doc epbxd API to handle SIP message (code/decode from/to binary stream)
--module(epbxd_sip_client_invite_transaction).
+% @doc State Machine for non-INVITE client transactions
+-module(epbxd_sip_client_noninvite_transaction).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 -behaviour(gen_fsm).
@@ -27,13 +27,13 @@
 % private API
 -export([init/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 % states handlers
--export([idle/3, calling/2, calling/3, proceeding/3, completed/2, completed/3, terminated/2]).
+-export([idle/3, trying/2, trying/3, proceeding/2, proceeding/3, completed/2, completed/3, terminated/2]).
 
 -include("utils.hrl").
--include("epbxd_sip.hrl").
+-include("sips/epbxd_sip.hrl").
 
 -record(state, {
-	timerbRef,
+	timerfRef,
 	transaction
 }).
 
@@ -80,74 +80,86 @@ get_transaction(Pid) ->
 %%
 
 % @sync
-idle({calling, Message, Transport, Socket}, _From, #state{transaction=Transaction}) ->
-	?DEBUG("fsm: idle->calling (state=~p)",[Transaction]),
+idle({trying, Message, Transport, Socket}, From, #state{transaction=Transaction}) ->
+	?DEBUG("fsm: idle->traying (state=~p)",[Transaction]),
 	% send message	
 	epbxd_sip_routing:send(Message, Transport, Socket),
 
 	Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
+		% non-reliable (UDP)
 		false ->
 			Transaction#transaction{
-				timerA=Transaction#transaction.t1,
-				timerD=32000,
+				timerE=erlang:min(Transaction#transaction.t1, Transaction#transaction.t2),
+				timerF=64*Transaction#transaction.t1,
+				timerK=Transaction#transaction.t4,
 				request={Message, Transport, Socket}};
 
 		_     ->
-			Transaction#transaction{request={Message, Transport, Socket}}
+			Transaction#transaction{
+				timerF=64*Transaction#transaction.t1,
+				request={Message, Transport, Socket}
+			}
 	end,
 
-	?DEBUG("timerA= ~p, timerB= ~p", [Transaction2#transaction.timerA, Transaction2#transaction.timerB]),
-	% install TimerB trigger
+	?DEBUG("timerE= ~p, timerF= ~p", [Transaction2#transaction.timerE, Transaction2#transaction.timerF]),
+	% install TimerF trigger
 	OnTimeout = fun(Pid) ->
-		gen_fsm:send_event(Pid, timeoutb)
+		gen_fsm:send_event(Pid, timeoutf)
 	end,
-	{ok, TRef} = timer:apply_after(Transaction2#transaction.timerB, erlang, apply, [OnTimeout, [self()]]),
+	{ok, TRef} = timer:apply_after(Transaction2#transaction.timerF, erlang, apply, [OnTimeout, [self()]]),
 
-	% if transport is reliable, TimerA == infinity => not timeout
-	{reply, ok, calling, #state{transaction=Transaction2, timerbRef=TRef}, Transaction2#transaction.timerA}.
+	% if transport is reliable, TimerE == infinity => not timeout
+	{reply, ok, calling, #state{transaction=Transaction2, timerfRef=TRef}, Transaction2#transaction.timerE}.
 
 % @async
-calling(timeout, State=#state{transaction=Transaction}) ->
-	?DEBUG("fsm: calling timeout timerA (timerA=~p)",[Transaction#transaction.timerA]),
+trying(timeout, State=#state{transaction=Transaction}) ->
+	?DEBUG("fsm: trying timeout timerE (=~p)",[Transaction#transaction.timerF]),
 	% send message
 	%NOTE: request is a tuple; but needs a list as epbxd_sip_routing:send() arguments
 	erlang:apply(epbxd_sip_routing,send, utils:list(Transaction#transaction.request)),
 
-	Transaction2 = Transaction#transaction{timerA=Transaction#transaction.timerA*2},
-	{next_state, calling, State#state{transaction=Transaction2}, Transaction2#transaction.timerA};
+	Transaction2 = Transaction#transaction{
+		timerE=erlang:min(Transaction#transaction.timerE*2,	Transaction#transaction.t2)
+	},
+	{next_state, trying, State#state{transaction=Transaction2}, Transaction2#transaction.timerE};
 
 % @async
-calling(timeoutb, State) ->
-	?DEBUG("fsm: calling timeoutb. Canceling transaction",[]),
+trying(timeoutf, State) ->
+	?DEBUG("fsm: TimerF timed out. Canceling transaction",[]),
 	% TODO: inform TU of timerB timeout
 	% ??
 	
 	{next_state, terminated, State}.
 
 % @sync
-calling({provisional, Response}, _From, State=#state{timerbRef=TRef}) ->
+trying({provisional, Response}, From, State=#state{timerfRef=TRef, transaction=#transaction{t2=T2}}) ->
 	{ok, cancel} = timer:cancel(TRef),
 
 	% TODO: give back response to TU
 	% just return response
 	
-	{reply, {ok, Response}, proceeding, State};
+	{reply, {ok, Response}, proceeding, State, T2};
 
 % @sync
-calling({successful, Response}, _From, State=#state{timerbRef=TRef}) ->
+trying({_, Response}, _From, State=#state{timerfRef=TRef, transaction=#transaction{timerK=TimerK}}) ->
 	{ok, cancel} = timer:cancel(TRef),
 
 	% TODO: give up final response to TU
-	{reply, {ok, Response}, terminated, State};
+	{reply, {ok, Response}, completed, State, TimerK}.
 
-% @sync
-calling({_, Response}, _From, State=#state{timerbRef=TRef}) ->
-	{ok, cancel} = timer:cancel(TRef),
+% @async
+proceeding(timeout, State=#state{transaction=Transaction}) ->
+	?DEBUG("fsm: proceeding timeout timerE (=~p)",[Transaction#transaction.t2]),
+	% send message
+	%NOTE: request is a tuple; but needs a list as epbxd_sip_routing:send() arguments
+	erlang:apply(epbxd_sip_routing,send, utils:list(Transaction#transaction.request)),
 
-	% TODO: give up response to TU (TU will send ACK request)
-	% TODO: send ACK request
+	{next_state, proceeding, State,	Transaction#transaction.t2};
 
-	{reply, {ok, Response}, complete, State, State#transaction.timerD}.
+% @async
+proceeding(timeoutf, State) ->
+	% just ignore
+	{next_state, terminated, State}.
 
 % @sync
 proceeding({provisional, Response}, _From, State) ->
@@ -155,46 +167,37 @@ proceeding({provisional, Response}, _From, State) ->
 	{reply, {ok, Response}, proceeding, State};
 
 % @sync
-proceeding({successful, Response}, _From, State) ->
-	% TODO: give up response to TU (TU will send ACK request)
-	{reply, {ok, Response}, terminated, State};
-
-% @sync
 proceeding({_, Response}, _From, State) ->
 	% give up response to TU
-	% send ACK request
 
-	{reply, {ok, Response}, completed, State, State#transaction.timerD}.
-
-% @async
-proceeding(timeoutb, State) ->
-	% just ignore
-	{next_state, proceeding, State}.
+	{reply, {ok, Response}, completed, State, State#state.transaction#transaction.timerK}.
 
 % @async
+% TimerK
 completed(timeout, State) ->
 	{next_state, terminated, State}.
 
 
 % @sync
-completed({_, Response=#sip_message{status=Status}}, _From, State) when Status > 200 ->
-	% DO NOT GIVE UP response to TU
-	% TODO: send ACK request
-	{reply, {stop, ignore}, completed, State}.
+completed({_, Response=#sip_message{}}, _From, State) ->
+	% DO NOTHING
+	{reply, {ok, Response}, completed, State}.
 
 % @async
 % NOTE: do not confuse with terminated() fsm callback
 terminated(_, State) ->
-	?DEBUG("fsm state change: plop terminated",[]),
+	?DEBUG("fsm state change: terminated",[]),
 	% destroy transaction
 	{next_state, idle, #transaction{}}.
-handle_event(_Event, StateName, State) ->
-	?DEBUG("fsm handle event (~p)", [self()]),
-    {next_state, StateName, State}.
+
 
 %%
 %% PRIVATE
 %%
+
+handle_event(_Event, StateName, State) ->
+	?DEBUG("fsm handle event (~p)", [self()]),
+    {next_state, StateName, State}.
 
 handle_sync_event(_Event, _From, StateName, State) ->
 	?DEBUG("fsm handle sync event (~p)", [self()]),

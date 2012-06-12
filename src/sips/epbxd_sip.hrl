@@ -104,13 +104,26 @@
 -record(transaction, {
 	key = {undefined,undefined},		% {Method, Branch}
 
+	% TIMERS
 	% RTT. Default to 500ms
 	t1      = 500,
+	% duration a non-INVITE server will take to respond request
+	t2      = 4000,
+	% duration network takes to clear messages between server and client
+	t4      = 5000,
+	% INVITE client
 	timerA  = infinity,
 	% 64*T1 == 32secs
 	timerB  = 32000,
-	%
 	timerD  = 0,
+
+	% non-INVITE client
+	timerE  = infinity,
+	timerF  = infinity,
+	timerK  = 0,
+
+	% / TIMERS
+
 	request = undefined,
 
 	fsm     = undefined,

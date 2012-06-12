@@ -35,20 +35,28 @@ init(Opts) ->
 		{monitor, false}
 	]),
 
+	{ok, Pid2} = poolboy:start_link([
+		{name, {local, epbxd_sip_client_noninvite_transaction}},
+		{worker_module, epbxd_sip_client_noninvite_transaction},
+		{size, 10},
+		{max_overflow, 10},
+		{monitor, false}
+	]),
+
 	ok.
 
 %% @doc
 %%
 send(Request=#sip_message{type=request,method=Method,headers=Headers}, Transport, Socket) ->
 	% switching to the good fsm
-	Fsm = poolboy:checkout(fsm(Method)),
+	Mod = fsm(client, Method),
+	Fsm = poolboy:checkout(Mod),
 	?DEBUG("transaction:send: fsm= ~p (from ~p)", [Fsm, self()]),
 
 	TransId = {
 		proplists:get_value(branch, (hd(proplists:get_value('Via', Headers)))#sip_via.params),
 		utils:bin(element(2, (proplists:get_value('CSeq', Headers)))) % {117, INVITE} -> INVITE
 	},
-	Mod = fsm(Method),
 	ets:insert(transactions, {TransId, {Mod, Fsm}}),
 
 	Mod:send(Fsm, Request, Transport, Socket),
@@ -61,5 +69,6 @@ get_transaction({Mod, Fsm}) ->
 
 %% @doc
 %%
-fsm('INVITE')  -> epbxd_sip_client_invite_transaction.
+fsm(client,'INVITE')  -> epbxd_sip_client_invite_transaction;
+fsm(client,_)         -> epbxd_sip_client_noninvite_transaction.
 
