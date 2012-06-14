@@ -1,4 +1,6 @@
 
+-ifndef(EPBXD_CHANNEL_HRL).
+-define(EPBXD_CHANNEL_HRL, 1).
 
 -include("sips/epbxd_sip.hrl").
 
@@ -31,3 +33,5 @@
 -type call_channel() :: #call_channel{}.
 
 %-define(CALLBACK(T), (epbxd_dialplan:callback(T))).
+%
+-endif.
