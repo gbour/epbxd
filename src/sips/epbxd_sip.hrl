@@ -122,6 +122,14 @@
 	timerF  = infinity,
 	timerK  = 0,
 
+	% INVITE server
+	timerG  = infinity,
+	timerH  = infinity,
+	timerI  = 0,
+
+	% non-INVITE server
+	timerJ  = infinity,
+
 	% / TIMERS
 
 	request = undefined,
