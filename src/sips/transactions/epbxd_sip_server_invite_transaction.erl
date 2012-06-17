@@ -25,15 +25,17 @@
 % public API
 -export([start_link/1, send/4, receipt/4, get_transaction/1]).
 % private API
--export([init/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+-export([init/1, cleanup/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 % states handlers
--export([idle/3, proceeding/3, completed/2, confirmed/2, confirmed/3, completed/3, terminated/2]).
+-export([idle/3, proceeding/3, completed/2, completed/3, confirmed/2, confirmed/3]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
 
 -record(state, {
-	timergRef,
+	tRefG,
+	tRefH,
+	response    = undefined,
 	transaction
 }).
 
@@ -49,7 +51,14 @@ start_link(Args) ->
 %%
 -spec init(list()) -> {ok, idle, #state{}}.
 init(Args) ->
-	{ok, idle, #state{transaction=#transaction{fsm=?MODULE, fsmid=self()}}}.
+	{ok, idle, #state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}}.
+
+%% @doc cleanup fsm state data
+%%
+-spec cleanup(#state{}) -> #state{}.
+cleanup(#state{transaction=Transaction}) ->
+	epbxd_sip_transaction:destroy(?MODULE, self(), Transaction),
+	#state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}.
 
 %% @doc Send a SIP message
 %%
@@ -63,135 +72,231 @@ send(Pid, Response=#sip_message{type=response}, Transport, Socket) ->
 %%
 %% Go through the transaction fsm
 %%
-%-spec recept(pid(), #sip_message{}) -> ok.
+-spec receipt(pid(), sip_message(), atom(), any()) -> ok | {error, atom()}.
 receipt(Pid, Message, Transport, Socket) ->
 	gen_fsm:sync_send_event(Pid, {Message, Transport, Socket}).
 
 %% @doc
 %%
--spec get_transaction(pid()) -> #transaction{}.
+-spec get_transaction(pid()) -> #sip_transaction{}.
 get_transaction(Pid) ->
 	% use handke_info/handle_event instead ?
 	{status,_,_,[_,running,_,_,[_,_,{data,[{_,State}]}]]} = sys:get_status(Pid),
 	State#state.transaction.
 
+
 %%
 %% FSM STATES/TRANSITIONS
 %%
 
-% @sync
-% receive an INVITE from peer
-idle({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _From, State=#state{transaction=Transaction}) ->
+
+%% @doc *idle* state :: receive INVITE request
+%% @sync
+%% @private
+%%
+-spec idle({sip_message(), atom(), any()}, any(), #state{}) -> {reply, ok|{error, atom()}, atom(), #state{}}.
+idle({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _From, StateData=#state{transaction=Transaction}) ->
 	%?DEBUG("fsm: idle->calling (state=~p)",[Transaction]),
 	% send 100 Trying to the peer
-	%epbxd_sip_routing:send(DOCREATEMESSAGE, Transport, Socket),
+	%%Response = trying(),
+	Response= foobar,
 
-	Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
-		false ->
-			Transaction#transaction{
-				timerG=Transaction#transaction.t1,
-				timerH=64*Transaction#transaction.t1,
-				timerI=Transaction#transaction.t4,
-				request={Request, Transport, Socket}};
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
+				false ->
+					Transaction#sip_transaction{
+						timerG=Transaction#sip_transaction.t1,
+						timerH=64*Transaction#sip_transaction.t1,
+						timerI=Transaction#sip_transaction.t4,
+						request={Request, Transport, Socket}};
 
-		_     ->
-			Transaction#transaction{
-				timerH=64*Transaction#transaction.t1,
-				request={Request, Transport, Socket}
-			}
+				_     ->
+					Transaction#sip_transaction{
+						timerH=64*Transaction#sip_transaction.t1,
+						request={Request, Transport, Socket}
+					}
+			end,
+			{ok, proceeding, StateData#state{transaction=Transaction2, response={Response, Transport, Socket}}};
+
+		{error, Reason} ->
+			{{error, Reason}, idle, cleanup(StateData)}
 	end,
 
-	% return ok, so INVITE hook execution continue
-	{reply, ok, proceeding, State#state{transaction=Transaction2}}.
+	{reply, Reply, NewState, NewStateData}.
 
-proceeding(Request=#sip_message{type=request, method='INVITE'}, _From, State) ->
-	{reply, {ok, Request}, proceeding, State};
+%% @doc *proceeding* state :: receive INVITE request (retransmission)
+%% @sync
+%% @private
+%%
+%% Send back last provisional response (stop hiik execution)
+%% 
+-spec proceeding({sip_message(), atom(), any()}|{atom(), sip_message(), atom(), any()}, any(), #state{}) -> 
+	{reply, ok|{error,atom()}, atom(), #state{}}.
+proceeding({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _From,	StateData=#state{response={Response,_,_}}) ->
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			{{stop, retransmission}, proceeding, StateData#state{response={Response,Transport,Socket}}};
 
-% @sync
-% request retransmission: send last provisional response
-%
-proceeding({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _From, State) ->
-	% TODO: send last provisional response to the peer
-	{reply, {stop, ignore}, State};
-
-% @sync
-proceeding({provisional, Response, Transport, Socket}, _From, State) ->
-	% TODO: send response to the peer
-	{reply, ok, proceeding, State};
-
-% @sync
-proceeding({successful, Response}, _From, State) ->
-	% TODO: send response to the peer
-	{reply, ok, terminated, State};
-
-% @sync
-% 3xx to 6xx responses
-proceeding({_, Response}, _From, State=#state{transaction=Transaction}) ->
-	% TODO: send response to the peer
-	
-	% install TimerH trigger
-	% replace by a gen_fsm:send_event_after
-	OnTimeout = fun(Pid) ->
-		gen_fsm:send_event(Pid, timeoutH)
+		{error, Reason} ->
+			{{error, Reason}, idle, cleanup(StateData)}
 	end,
-	{ok, TRef} = timer:apply_after(Transaction#transaction.timerH, erlang, apply, [OnTimeout, [self()]]),
 
-	% we'll need to cancel this timer when switching to confirmed state, so we need a reference
-	TRef2 = gen_fsm:send_event_after(State#state.transaction#transaction.timerG, timeoutG),
-	{reply, ok, completed, State#state{timergRef=TRef2}}.
+	{reply, Reply, NewState, NewStateData};
 
-% @async
-% timerG
-completed(timeoutG, State=#state{transaction=Transaction}) ->
-	% TODO: send last response (3xx to 6xx)
-	State2 = State#state{
-		transaction=Transaction#transaction{
-			timerG=min(Transaction#transaction.timerG*2, Transaction#transaction.t2)
-	}},
-	TRef = gen_fsm:send_event_after(State#state.transaction#transaction.timerG, timeoutG),
+%% @doc *proceeding* state :: TU sending provisional response
+%% @sync
+%% @private
+%%
+proceeding({provisional, Response, Transport, Socket}, _From, StateData) ->
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			{ok, proceeding, StateData};
 
-	{next_state, completed, State2#state{timergRef=TRef}};
+		{error, Reason} ->
+			{{error, Reason}, idle, cleanup(StateData)}
+	end,
 
-completed(timeoutH, State) ->
-	% cancel timerG
-	gen_fsm:cancel_timer(State#state.timergRef),
+	{reply, Reply, NewState, NewStateData};
+
+%% @doc *proceeding* state :: TU sending OK (2XX) response
+%% @sync
+%% @private
+%%
+proceeding({successful, Response, Transport, Socket}, _From, StateData) ->
+	Reply =	epbxd_sip_routing:send(Response, Transport, Socket),
+	{reply, Reply, idle, cleanup(StateData)};
+
+%% @doc *proceeding* state :: TU sending 3XX to 6XX response
+%% @sync
+%% @private
+%%
+proceeding({_, Response, Transport, Socket}, _From, StateData=#state{transaction=Transaction}) ->
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			% install TimerG/TimerH triggers
+			TRefG = gen_fsm:send_event_after(Transaction#sip_transaction.timerG, timeoutG),
+			TRefH = gen_fsm:send_event_after(Transaction#sip_transaction.timerH, timeoutH),
+			{ok, completed, StateData#state{tRefG=TRefG, tRefH=TRefH, response={Response, Transport, Socket}}};
+
+		{error, Reason} ->
+			{{error, Reason}, idle, cleanup(StateData)}
+	end,
+
+	{reply, Reply, NewState, NewStateData}.
+
+%% @doc *completed* state :: timerG timeout
+%% @private
+%% @async
+%%
+%% Send back last 3xx/6xx response
+%%
+-spec completed(timeoutG|timeoutH, #state{}) -> {next_state, completed|idle, #state{}}.
+completed(timeoutG, StateData=#state{transaction=Transaction, response={Response, Transport, Socket}}) ->
+	{NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			Transaction2=Transaction#sip_transaction{
+				timerG=min(Transaction#sip_transaction.timerG*2, Transaction#sip_transaction.t2)
+			},
+			TRefG = gen_fsm:send_event_after(Transaction#sip_transaction.timerG, timeoutG),
+
+			{completed, StateData#state{tRefG=TRefG, transaction=Transaction2}};
+
+		{error, Reason} ->
+			%TODO : inform TU of error
+			{idle, cleanup(StateData)}
+	end,
+
+	{next_state, NewState, NewStateData};
+
+%% @doc *completed* state :: timerH timeout
+%% @private
+%% @async
+%%
+%% Ends transaction
+%%
+completed(timeoutH, StateData=#state{tRefG=TRefG}) ->
+	_Remains = gen_fsm:cancel_timer(TRefG),
 
 	% inform TU that transaction fails (ACK never received)
-	{next_state, terminated, State}.
+	{next_state, idle, cleanup(StateData)}.
 
-completed(Request=#sip_message{type=request, method='INVITE'}, _From, State) ->
-	% TODO: send last provisional response
-	{reply, {ok, Request}, completed, State};
+%% @doc *completed* state :: receive INVITE request (retransmission)
+%% @private
+%% @sync
+%%
+%% Send back last 3xx/6xx response
+%%
+-spec completed(sip_message(), any(), #state{}) -> 
+	{reply, ok|{error,atom()}, atom(), #state{}} | {reply, {stop,ack}, confirmed, #state{}, integer()|infinity}.
+completed(Request=#sip_message{type=request, method='INVITE'}, _From, StateData=#state{tRefG=TRefG, response={Response,	Transport, Socket}, transaction=Transaction}) ->
+	_Remains = gen_fsm:cancel_timer(TRefG),
 
-% @sync
-completed(#sip_message{type=request, method='ACK'}, _From, State) ->
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              ->
+			TRefG2 = gen_fsm:send_event_after(Transaction#sip_transaction.timerG, timeoutG),
+			{ok, completed, StateData#state{tRefG=TRefG2}};
+
+		{error, Reason} ->
+			{{error, Reason}, idle, cleanup(StateData)}
+	end,
+
+	{reply, Reply, NewState, NewStateData};
+
+%% @doc *completed* state :: receive ACK request (end of INVITE transaction)
+%% @private
+%% @sync
+%%
+%% Go to *confirmed* state (canceling timerG)
+%% NOTE: ACK request is not transmited to TU
+completed(#sip_message{type=request, method='ACK'}, _From, StateData=#state{tRefG=TRefG, tRefH=TRefH, transaction=Transaction}) ->
 	% cancel timerG
-	gen_fsm:cancel_timer(State#state.timergRef),
+	_Remains1 = gen_fsm:cancel_timer(TRefG),
+	_Remains2 = gen_fsm:cancel_timer(TRefH),
 
-	% DO NOT GIVE UP response to TU
-	{reply, {stop, ignore}, confirmed, State, State#state.transaction#transaction.timerI}.
+	{_,Transport,_} = Transaction#sip_transaction.request,
+	% If transaction is reliable, destroy transaction immediatly
+	{NewState, NewStateData, TimeOut} =
+		case epbxd_sip_routing:is_reliable(Transport:name()) 
+	of
+		false ->
+			{confirmed, StateData, Transaction#sip_transaction.timerI};
+	
+		_     ->
+			{idle, cleanup(StateData), infinity}
+	end,
 
-% async
-% timerI
-confirmed(timeout, State) ->
-	{next_state, terminated, State};
+	{reply, {stop, ack}, NewState, NewStateData, TimeOut}.
 
-% @async
-% timerH: ignored
-confirmed(timeoutH, State) ->
-	{next_state, confirmed, State}.
+%% @doc *confirmed* state :: timerI timeout
+%% @private
+%% @async
+%%
+%% destroy transaction
+-spec confirmed(timeout, #state{}) -> {next_state, idle, #state{}}.
+confirmed(timeout, StateData) ->
+	{next_state, idle, cleanup(StateData)}.
 
-% sync
-% absork additional ACKs
+%% @doc *confirmed* state :: receive ACK request (retransmission)
+%% @private
+%% @sync
+%%
+%% Absorb ACK (not transmitted to TU)
+-spec confirmed(sip_message(), any(), #state{}) -> {reply, {stop,retransmission}, confirmed, #state{}}.
 confirmed(#sip_message{type=request, method='ACK'}, _From, State) ->
-	{reply, {stop, ignore}, confirmed, State}.
-
-% @async
-% NOTE: do not confuse with terminated() fsm callback
-terminated(_, State) ->
-	?DEBUG("fsm state change: plop terminated",[]),
-	% destroy transaction
-	{next_state, idle, #transaction{}}.
+	{reply, {stop, retransmission}, confirmed, State}.
 
 
 %%
