@@ -101,42 +101,46 @@
 	d_uri
 }).
 
--record(transaction, {
-	key = {undefined,undefined},		% {Method, Branch}
 
-	% TIMERS
+%% Transaction
+-record(sip_transaction, {
+	key       = {undefined,undefined} :: {tuple(),tuple()},		% {Method, Branch}
+
+	% TIMERS (in milliseconds)
 	% RTT. Default to 500ms
-	t1      = 500,
+	t1        = 500                   :: integer,
 	% duration a non-INVITE server will take to respond request
-	t2      = 4000,
+	t2        = 4000                  :: integer,
 	% duration network takes to clear messages between server and client
-	t4      = 5000,
+	t4        = 5000                  :: integer,
 	% INVITE client
-	timerA  = infinity,
+	timerA    = infinity,
 	% 64*T1 == 32secs
-	timerB  = 32000,
-	timerD  = 0,
+	timerB    = 32000,
+	timerD    = 0,
 
 	% non-INVITE client
-	timerE  = infinity,
-	timerF  = infinity,
-	timerK  = 0,
+	timerE    = infinity,
+	timerF    = infinity,
+	timerK    = 0,
 
 	% INVITE server
-	timerG  = infinity,
-	timerH  = infinity,
-	timerI  = 0,
+	timerG    = infinity,
+	timerH    = infinity,
+	timerI    = 0,
 
 	% non-INVITE server
-	timerJ  = infinity,
+	timerJ    = infinity,
 
 	% / TIMERS
 
-	request = undefined,
+	request   = undefined,
 
-	fsm     = undefined,
-	fsmid   = undefined
+	fsm       = undefined,
+	fsmid     = undefined
 }).
+-type sip_transaction() :: #sip_transaction{}.
+
 
 %% Dialog
 -type sip_request()       :: 'INVITE' | 'BYE' | 'CANCEL' | 'OPTIONS'.
