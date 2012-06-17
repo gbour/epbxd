@@ -154,7 +154,7 @@ at(Hookname, Priority) when 1 =< Priority andalso Priority =< 100 ->
 run(Hookname, Args) ->
 	case gen_server:call(epbxd_hooks, {get, Hookname}) of
 		{GOpts, Callbacks} ->
-			run_(Callbacks, {Hookname, 1}, Args, undefined, GOpts);
+			run_(Callbacks, {Hookname, 1}, Args, [], GOpts);
 
 		_                  ->
 			undefined
