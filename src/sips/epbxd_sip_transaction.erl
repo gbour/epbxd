@@ -23,25 +23,26 @@
 -include("epbxd_sip.hrl").
 -include("utils.hrl").
 
-%% @doc
+%% @doc Initialise SIP transactions
 %%
+-spec init(list()) -> ok | {error, tuple()}.
 init(Opts) ->
 	ets:new(transactions, [set, named_table, public]),
-	{ok, Pid} = poolboy:start_link([
-		{name, {local, epbxd_sip_client_invite_transaction}},
-		{worker_module, epbxd_sip_client_invite_transaction},
-		{size, 10},
-		{max_overflow, 10},
-		{monitor, false}
-	]),
 
-	{ok, Pid2} = poolboy:start_link([
-		{name, {local, epbxd_sip_client_noninvite_transaction}},
-		{worker_module, epbxd_sip_client_noninvite_transaction},
-		{size, 10},
-		{max_overflow, 10},
-		{monitor, false}
-	]),
+	% create pools of transactions
+	lists:foreach(fun(Trans) ->
+			{ok, Pid} = poolboy:start_link([
+				{name, {local, Trans}},	{worker_module, Trans},
+				{size, 10},	{max_overflow, 10},	{monitor, false}
+			])
+		end,
+		[
+			epbxd_sip_client_invite_transaction,
+			epbxd_sip_client_noninvite_transaction,
+			epbxd_sip_server_invite_transaction,
+			epbxd_sip_server_noninvite_transaction
+		]
+	),
 
 	ok.
 
