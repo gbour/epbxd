@@ -46,30 +46,41 @@ init(Opts) ->
 
 	ok.
 
-%% @doc
+%% @doc Send a request (INVITE, BYE, ...)
 %%
+%% NOTE: ACK request (server transaction side) is directly sent by the transaction fsm
+%%
+-spec send(sip_message(), tuple(), any()) -> ok | {error, tuple()}.
 send(Request=#sip_message{type=request,method=Method,headers=Headers}, Transport, Socket) ->
-	% switching to the good fsm
-	Mod = fsm(client, Method),
-	Fsm = poolboy:checkout(Mod),
-	?DEBUG("transaction:send: fsm= ~p (from ~p)", [Fsm, self()]),
+	% select transaction module, and dequeue a transaction from its pool
+	Mod = select_fsm(client, Method),
+	case poolboy:checkout(Mod) of
+		full ->
+			{error, no_available_transaction};
 
-	TransId = {
-		proplists:get_value(branch, (hd(proplists:get_value('Via', Headers)))#sip_via.params),
-		utils:bin(element(2, (proplists:get_value('CSeq', Headers)))) % {117, INVITE} -> INVITE
-	},
-	ets:insert(transactions, {TransId, {Mod, Fsm}}),
+		Fsm  ->
+			?DEBUG("transaction:send: fsm= ~p (from ~p)", [Fsm, self()]),
 
-	Mod:send(Fsm, Request, Transport, Socket),
-	ok.
+			% TODO: do more tests
+			TransId = {
+				proplists:get_value(branch, (hd(proplists:get_value('Via', Headers)))#sip_via.params),
+				utils:bin(element(2, (proplists:get_value('CSeq', Headers)))) % {117, INVITE} -> INVITE
+			},
+			ets:insert(transactions, {TransId, {Mod, Fsm}}),
+
+			Mod:send(Fsm, Request, Transport, Socket)
+	end.
 
 %% @doc
 %%
 get_transaction({Mod, Fsm}) ->
 	Mod:get_transaction(Fsm).
 
-%% @doc
+%% @doc Select transaction module from TU mode (client/server) and Request method
 %%
-fsm(client,'INVITE')  -> epbxd_sip_client_invite_transaction;
-fsm(client,_)         -> epbxd_sip_client_noninvite_transaction.
+-spec select_fsm(client|server, tuple()) -> tuple().
+select_fsm(client,'INVITE')  -> epbxd_sip_client_invite_transaction;
+select_fsm(client,_)         -> epbxd_sip_client_noninvite_transaction;
+select_fsm(server,'INVITE')  -> epbxd_sip_server_invite_transaction;
+select_fsm(server,_)         -> epbxd_sip_server_noninvite_transaction.
 
