@@ -71,7 +71,7 @@ send(Pid, Message, Transport, Socket) ->
 %%
 %% Go through the transaction fsm
 %%
--spec receipt(pid(), #sip_message{}) -> ok.
+-spec receipt(pid(), #sip_message{}) -> ok | {error, atom()}.
 receipt(Pid, Message=#sip_message{status=Status}) ->
 	gen_fsm:sync_send_event(Pid, {epbxd_sip_message:response_type(Status), Message}).
 
@@ -120,7 +120,7 @@ idle({calling, Request=#sip_message{type=request, method='INVITE'}, Transport, S
 
 		% TRANSPORT ERROR
 		{error, Reason} ->
-			{{error, Reason}, terminate, StateData, infinity}
+			{{error, Reason}, idle, cleanup(StateData), infinity}
 	end,
 
 	{reply, Reply, NewState, NewStateData, TimeOut}.
