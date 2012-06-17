@@ -23,17 +23,18 @@
 -behaviour(poolboy_worker).
 
 % public API
--export([start_link/1, send/4, recept/2, get_transaction/1]).
+-export([start_link/1, send/4, receipt/2, get_transaction/1]).
 % private API
--export([init/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+-export([init/1, cleanup/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 % states handlers
--export([idle/3, calling/2, calling/3, proceeding/3, completed/2, completed/3, terminated/2]).
+-export([idle/3, calling/2, calling/3, proceeding/3, completed/2, completed/3]).
 
 -include("utils.hrl").
 -include("sips/epbxd_sip.hrl").
 
 -record(state, {
-	timerbRef,
+	tRefB,
+	tRefD,
 	transaction
 }).
 
@@ -48,14 +49,21 @@ start_link(Args) ->
 %% @private
 %%
 -spec init(list()) -> {ok, idle, #state{}}.
-init(Args) ->
-	{ok, idle, #state{transaction=#transaction{fsm=?MODULE, fsmid=self()}}}.
+init(_Args) ->
+	{ok, idle, #state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}}.
+
+%% @doc cleanup fsm state data
+%%
+-spec cleanup(#state{}) -> #state{}.
+cleanup(#state{transaction=Transaction}) ->
+	epbxd_sip_transaction:destroy(?MODULE, self(), Transaction),
+	#state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}.
 
 %% @doc Send a SIP message
 %%
 %% The message go through the fsm.
 %% Sending need the fsm to be in idle state
--spec send(pid(), #sip_message{}, atom(), any()) -> ok.
+-spec send(pid(), sip_message(), atom(), any()) -> ok.
 send(Pid, Message, Transport, Socket) ->
 	gen_fsm:sync_send_event(Pid, {calling, Message, Transport, Socket}).
 
@@ -63,13 +71,13 @@ send(Pid, Message, Transport, Socket) ->
 %%
 %% Go through the transaction fsm
 %%
--spec recept(pid(), #sip_message{}) -> ok.
-recept(Pid, Message=#sip_message{status=Status}) ->
+-spec receipt(pid(), #sip_message{}) -> ok.
+receipt(Pid, Message=#sip_message{status=Status}) ->
 	gen_fsm:sync_send_event(Pid, {epbxd_sip_message:response_type(Status), Message}).
 
 %% @doc
 %%
--spec get_transaction(pid()) -> #transaction{}.
+-spec get_transaction(pid()) -> #sip_transaction{}.
 get_transaction(Pid) ->
 	% use handke_info/handle_event instead ?
 	{status,_,_,[_,running,_,_,[_,_,{data,[{_,State}]}]]} = sys:get_status(Pid),
@@ -79,122 +87,161 @@ get_transaction(Pid) ->
 %% FSM STATES/TRANSITIONS
 %%
 
-% @sync
-idle({calling, Message, Transport, Socket}, _From, #state{transaction=Transaction}) ->
+%% @doc idle -> calling :: sending an INVITE Request to a client
+%% @sync
+%%
+-spec idle({calling, sip_message(), tuple(), any()}, any(), #state{}) -> {reply, tuple(), tuple(), #state{}, integer()}.
+idle({calling, Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _From, StateData=#state{transaction=Transaction}) ->
 	?DEBUG("fsm: idle->calling (state=~p)",[Transaction]),
 	% send message	
-	epbxd_sip_routing:send(Message, Transport, Socket),
+	{Reply, NewState, NewStateData, TimeOut} = case 
+		epbxd_sip_routing:send(Request, Transport, Socket) 
+	of
+		% MESSAGE SENT
+		ok             ->
+			Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
+				false ->
+					Transaction#sip_transaction{
+						timerA=Transaction#sip_transaction.t1,
+						timerD=32000,
+						request={Request, Transport, Socket}};
 
-	Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
-		false ->
-			Transaction#transaction{
-				timerA=Transaction#transaction.t1,
-				timerD=32000,
-				request={Message, Transport, Socket}};
+				_     ->
+					% timerA=infinity
+					Transaction#sip_transaction{request={Request, Transport, Socket}}
+			end,
 
-		_     ->
-			Transaction#transaction{request={Message, Transport, Socket}}
+			?DEBUG("timerA= ~p, timerB= ~p", [Transaction2#sip_transaction.timerA, Transaction2#sip_transaction.timerB]),
+			% install TimerB trigger
+			TRef = gen_fsm:send_event_after(Transaction2#sip_transaction.timerB, timeoutB),
+
+			% if transport is reliable, TimerA == infinity => not timeout
+			{ok, calling, StateData#state{transaction=Transaction2, tRefB=TRef}, Transaction2#sip_transaction.timerA};
+
+		% TRANSPORT ERROR
+		{error, Reason} ->
+			{{error, Reason}, terminate, StateData, infinity}
 	end,
 
-	?DEBUG("timerA= ~p, timerB= ~p", [Transaction2#transaction.timerA, Transaction2#transaction.timerB]),
-	% install TimerB trigger
-	OnTimeout = fun(Pid) ->
-		gen_fsm:send_event(Pid, timeoutb)
+	{reply, Reply, NewState, NewStateData, TimeOut}.
+
+%% @doc *calling* state :: timerA timeout
+%% @async
+%%
+-spec calling(timeout|timeoutB, #state{}) -> {next_state, calling|idle, #state{}, integer()}|{next_state, idle, #state{}}.
+calling(timeout, StateData=#state{transaction=Transaction}) ->
+	?DEBUG("fsm: calling timeout timerA (timerA=~p)",[Transaction#sip_transaction.timerA]),
+	% resend message
+	% NOTE: request is a tuple; but needs a list as epbxd_sip_routing:send() arguments
+	{NewState, NewStateData, TimeOut} = case 
+		erlang:apply(epbxd_sip_routing, send, utils:list(Transaction#sip_transaction.request))
+	of
+		% MESSAGE SEND
+		ok              ->
+			Transaction2 = Transaction#sip_transaction{timerA=Transaction#sip_transaction.timerA*2},
+			{calling, StateData#state{transaction=Transaction2}, Transaction2#sip_transaction.timerA};
+
+		% TRANSPORT ERROR: terminate transaction
+		{error, _Reason} ->
+			% TODO: inform TU
+			%
+			{idle, cleanup(StateData), infinity}
 	end,
-	{ok, TRef} = timer:apply_after(Transaction2#transaction.timerB, erlang, apply, [OnTimeout, [self()]]),
 
-	% if transport is reliable, TimerA == infinity => not timeout
-	{reply, ok, calling, #state{transaction=Transaction2, timerbRef=TRef}, Transaction2#transaction.timerA}.
+	{next_state, NewState, NewStateData, TimeOut};
 
-% @async
-calling(timeout, State=#state{transaction=Transaction}) ->
-	?DEBUG("fsm: calling timeout timerA (timerA=~p)",[Transaction#transaction.timerA]),
-	% send message
-	%NOTE: request is a tuple; but needs a list as epbxd_sip_routing:send() arguments
-	erlang:apply(epbxd_sip_routing,send, utils:list(Transaction#transaction.request)),
-
-	Transaction2 = Transaction#transaction{timerA=Transaction#transaction.timerA*2},
-	{next_state, calling, State#state{transaction=Transaction2}, Transaction2#transaction.timerA};
-
-% @async
-calling(timeoutb, State) ->
+%% @doc *calling* state :: timerB timeout
+%% @async
+%%
+%-spec calling(timeoutB, #state{}) -> {next_state, terminated, #state{}}.
+calling(timeoutB, State) ->
 	?DEBUG("fsm: calling timeoutb. Canceling transaction",[]),
 	% TODO: inform TU of timerB timeout
-	% ??
-	
-	{next_state, terminated, State}.
 
-% @sync
-calling({provisional, Response}, _From, State=#state{timerbRef=TRef}) ->
-	{ok, cancel} = timer:cancel(TRef),
+	% terminate transaction
+	{next_state, idle, cleanup(State)}.
 
-	% TODO: give back response to TU
-	% just return response
-	
-	{reply, {ok, Response}, proceeding, State};
+%% @doc *calling* state :: receiving provisional (1XX) response
+%% @sync
+%%
+-spec calling({provisional, sip_message()}, any(), #state{}) -> {reply, {ok, sip_message(), sip_transaction()}, atom(),	#state{}}.
+calling({provisional, Response}, _From, State=#state{tRefB=TRef, transaction=Transaction}) ->
+	io:format(user,"calling: prov response (~p)~n", [TRef]),
+	_Remains = gen_fsm:cancel_timer(TRef),
 
-% @sync
-calling({successful, Response}, _From, State=#state{timerbRef=TRef}) ->
-	{ok, cancel} = timer:cancel(TRef),
+	% give up response to TU (returns ok, then hooks execution continue)
+	{reply, {ok, Response, Transaction}, proceeding, State};
 
-	% TODO: give up final response to TU
-	{reply, {ok, Response}, terminated, State};
+%% @doc *calling* state :: receiving successful (2XX) response
+%% @sync
+%%
+calling({successful, Response}, _From, State=#state{tRefB=TRef, transaction=Transaction}) ->
+	_Remains = gen_fsm:cancel_timer(TRef),
 
-% @sync
-calling({_, Response}, _From, State=#state{timerbRef=TRef}) ->
-	{ok, cancel} = timer:cancel(TRef),
+	% give up final response to TU
+	{reply, {ok, Response, Transaction}, idle, cleanup(State)};
 
-	% TODO: give up response to TU (TU will send ACK request)
-	% TODO: send ACK request
+%% @doc *calling* state :: receiving 3XX to 6XX response
+%% @sync
+%%
+calling({_, Response}, _From, State=#state{tRefB=TRef, transaction=Transaction}) ->
+	_Remains = gen_fsm:cancel_timer(TRef),
 
-	{reply, {ok, Response}, complete, State, State#transaction.timerD}.
-
-% @sync
-proceeding({provisional, Response}, _From, State) ->
-	% TODO: give up response to TU
-	{reply, {ok, Response}, proceeding, State};
-
-% @sync
-proceeding({successful, Response}, _From, State) ->
-	% TODO: give up response to TU (TU will send ACK request)
-	{reply, {ok, Response}, terminated, State};
-
-% @sync
-proceeding({_, Response}, _From, State) ->
+	% install TimerD trigger
+	TRefD = gen_fsm:send_event_after(Transaction#sip_transaction.timerD, timeoutD),
 	% give up response to TU
+	{reply, {ok, Response, Transaction}, completed, State#state{tRefD=TRefD}}.
+
+%% @doc *proceeding* state :: receiving provisional (1XX) response
+%% @sync
+%%
+-spec proceeding({tuple(), sip_message()}, any(), #state{}) -> {reply, {ok, sip_message(), sip_transaction()}, atom(), #state{}}.
+proceeding({provisional, Response}, _From, State=#state{transaction=Transaction}) ->
+	% give up response to TU
+	{reply, {ok, Response, Transaction}, proceeding, State};
+
+%% @doc *proceeding* state :: receiving successful (2XX) response
+%% @sync
+%%
+proceeding({successful, Response}, _From, State=#state{transaction=Transaction}) ->
+	% give up response to TU (TU is responsible of sending ACK request)
+	{reply, {ok, Response, Transaction}, idle, cleanup(State)};
+
+%% @doc *proceeding* state :: receiving 3XX to 6XX response
+%% @sync
+%%
+proceeding({_, Response}, _From, State=#state{transaction=Transaction}) ->
 	% send ACK request
 
-	{reply, {ok, Response}, completed, State, State#transaction.timerD}.
+	% install TimerD trigger
+	TRefD = gen_fsm:send_event_after(Transaction#sip_transaction.timerD, timeoutD),
+	% give up response to TU
+	{reply, {ok, Response, Transaction}, completed, State#state{tRefD=TRefD}}.
 
-% @async
-proceeding(timeoutb, State) ->
-	% just ignore
-	{next_state, proceeding, State}.
-
-% @async
+%% @doc *completed* state :: timerD timetout
+%% @async
+%%
+-spec completed(timeoutD, #state{}) -> {next_state, idle, #state{}}.
 completed(timeout, State) ->
-	{next_state, terminated, State}.
+	{next_state, idle, cleanup(State)}.
 
-
-% @sync
-completed({_, Response=#sip_message{status=Status}}, _From, State) when Status > 200 ->
+%% @doc *completed* state :: receiving 3XX to 6XX response
+%%
+%% @sync
+-spec completed({atom(), sip_message()}, any(), #state{}) -> {reply, {stop, ignore}, completed, #state{}}.
+completed({_, _Response=#sip_message{status=Status}}, _From, State) when Status >= 300 ->
 	% DO NOT GIVE UP response to TU
 	% TODO: send ACK request
 	{reply, {stop, ignore}, completed, State}.
 
-% @async
-% NOTE: do not confuse with terminated() fsm callback
-terminated(_, State) ->
-	?DEBUG("fsm state change: plop terminated",[]),
-	% destroy transaction
-	{next_state, idle, #transaction{}}.
-handle_event(_Event, StateName, State) ->
-	?DEBUG("fsm handle event (~p)", [self()]),
-    {next_state, StateName, State}.
 
 %%
 %% PRIVATE
 %%
+
+handle_event(_Event, StateName, State) ->
+	?DEBUG("fsm handle event (~p)", [self()]),
+    {next_state, StateName, State}.
 
 handle_sync_event(_Event, _From, StateName, State) ->
 	?DEBUG("fsm handle sync event (~p)", [self()]),

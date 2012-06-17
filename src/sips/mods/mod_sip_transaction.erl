@@ -55,7 +55,7 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 %-spec invite(tuple(), tuple(), any()) -> tuple(ok, any()).
-transaction(_, {Response=#sip_message{headers=Headers}, Sock, Transport}, State, Opts) ->
+transaction(_, {Response=#sip_message{headers=Headers}, _Sock, _Transport}, State, _Opts) ->
 	TransId = {
 		proplists:get_value("branch", (hd(proplists:get_value('Via', Headers)))#sip_via.params),
 		element(2, (proplists:get_value('CSeq', Headers))) % {117, INVITE} -> INVITE
@@ -64,17 +64,20 @@ transaction(_, {Response=#sip_message{headers=Headers}, Sock, Transport}, State,
 	?DEBUG("Starting transaction handler. Transaction ID= ~p", [TransId]),
 	ontrans(ets:lookup(transactions, TransId), Response, State).
 
-ontrans([], Response, State) ->
+ontrans([], _, _) ->
 	?DEBUG("Transaction not found", []),
 	{error, transaction_not_found};
-ontrans([{_,Fsm}], Response, State) ->
-	Transaction = epbxd_sip_transaction:get_transaction(Fsm),
-	?DEBUG("Transaction found: ~p", [Transaction]),
+ontrans([{_, {Mod, Fsm}}], Response, State) ->
+	%Transaction = epbxd_sip_transaction:get_transaction(Fsm),
+	%?DEBUG("Transaction found: ~p", [Transaction]),
+	?DEBUG("Transaction found", []),
 
-	case (Transaction#transaction.fsm):recept(Fsm, Response) of
-		{ok, Response} ->
-			{next, State};
+	case Mod:receipt(Fsm, Response) of
+		{ok, Response, Transaction} ->
+			{next, [{transaction,Transaction}|State]};
 
-		{stop, Reason}  ->
+		{stop, _Reason}  ->
+			% TODO: should return an error response to client
 			{stop, State}
 	end.
+

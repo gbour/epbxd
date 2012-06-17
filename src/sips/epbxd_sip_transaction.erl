@@ -18,7 +18,7 @@
 % @doc epbxd SIP transactions API
 -module(epbxd_sip_transaction).
 
--export([init/1, send/3, get_transaction/1]).
+-export([init/1, send/3, destroy/3, get_transaction/1]).
 
 -include("epbxd_sip.hrl").
 -include("utils.hrl").
@@ -70,6 +70,12 @@ send(Request=#sip_message{type=request,method=Method,headers=Headers}, Transport
 
 			Mod:send(Fsm, Request, Transport, Socket)
 	end.
+
+destroy(Mod, Fsm, #sip_transaction{key=Key}) ->
+	poolboy:checkin(Mod, Fsm),
+	true = ets:delete(transactions, Key),
+
+	ok.
 
 %% @doc
 %%
