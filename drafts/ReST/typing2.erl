@@ -82,3 +82,83 @@ check_field_default(_,_) ->
 	false.
 
 
+%%%
+%%% DATA SCHEMAS (JSON FORMAT)
+%%%
+
+schema_all(Resources) ->
+	jsx:encode(schema_all_(Resources,[])).
+
+schema_all_([], Schema) ->
+	Schema;
+schema_all_([#resource{name=Name}|T], Schema) ->
+	Name2 = erlang:atom_to_binary(Name, latin1),
+	schema_all_(T, [
+		{Name, [
+			{base  , <<"/api/",Name2/binary>>},
+			{schema, <<"/api/",Name2/binary,"/schema">>}]
+		}|Schema
+	]).
+
+
+schema(Resource=#resource{fields=Fields}) ->
+	jsx:encode([
+			resource_key(Resource),
+			{fields, lists:reverse(schema_field(Fields, []))}
+	]).
+
+resource_key(#resource{key=undefined}) ->
+	<<"">>;
+resource_key(#resource{key=Key}) ->
+	{key, erlang:atom_to_binary(Key, latin1)}.
+
+schema_field([], Schema) ->
+	Schema;
+schema_field([{Name, Field}|T], Schema) ->
+	schema_field(T,
+		[{Name, 
+				% use record_info(fields, XX)
+				lists:reverse(schema_field_(Field, [type,default,required,unique,desc], []))
+		}|Schema
+	]).
+
+schema_field_(_,[],Acc) ->
+	Acc;
+schema_field_(Field=#field{type=Type},[type|T], Acc) when Type == integer; Type == string->
+	schema_field_(Field,T, [{type, erlang:atom_to_binary(Type, latin1)}|Acc]);
+schema_field_(Field=#field{type=Type},[type|T], Acc) when is_atom(Type) ->
+	Name = erlang:atom_to_binary(Type,latin1),
+	schema_field_(Field, T, [
+		{type, Name}|
+		[{schema, <<"/api/",Name/binary,"/schema">>}|Acc]]
+	);
+
+schema_field_(Field=#field{type={list,Type}},[type|T], Acc) when Type == integer; Type==string ->
+	schema_field_(Field, T, [
+		{type, <<"list">>}|
+		[{subtype, erlang:atom_to_binary(Type,latin1)}|Acc]
+	]);
+
+schema_field_(Field=#field{type={list,Type}},[type|T], Acc)  ->
+	Name= erlang:atom_to_binary(Type,latin1),
+	schema_field_(Field, T, [
+		{type, <<"list">>}|
+		[{subtype, Name}|
+		[{schema, <<"/api/",Name/binary,"/schema">>}|Acc]]
+	]);
+
+schema_field_(Field=#field{required=false, default=Default},[default|T], Acc) when Default =:= undefined ->
+	schema_field_(Field,T, [{default, null}|Acc]);
+	%schema_field_(Field,T, [{default, erlang:atom_to_binary(Default,latin1)}|Acc]);
+schema_field_(Field=#field{default=[]}, [default|T], Acc) ->
+	schema_field_(Field,T,[{default, []}|Acc]);
+	
+schema_field_(Field=#field{required=Required},[required|T], Acc) ->
+	schema_field_(Field, T, [{required, Required}|Acc]);
+schema_field_(Field=#field{unique=Required},[unique|T], Acc) ->
+	schema_field_(Field, T, [{unique, Required}|Acc]);
+schema_field_(Field=#field{desc=Desc},[desc|T],Acc) when is_binary(Desc)->
+	schema_field_(Field, T, [{desc, Desc}|Acc]);
+schema_field_(Field,[_|T], Acc) ->
+	schema_field_(Field,T,Acc).
+
