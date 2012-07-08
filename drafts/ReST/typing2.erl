@@ -162,3 +162,22 @@ schema_field_(Field=#field{desc=Desc},[desc|T],Acc) when is_binary(Desc)->
 schema_field_(Field,[_|T], Acc) ->
 	schema_field_(Field,T,Acc).
 
+%%
+%% Serialization
+%%
+
+encode_list(Type, Data) ->
+	Resource = rest:get_resource(Type),
+	Key = Resource#resource.key,
+
+	Name = erlang:atom_to_binary(Type,latin1),
+	jsx:encode([
+		{ref, <<"/api/", Name/binary, "/{1}">>},
+		{start, 0},
+		{count, 2},
+		{total, 2},
+		{objects, lists:map(fun(D) -> proplists:get_value(Key, D) end, Data)}
+	]).
+
+encode(Type, Data) ->
+	jsx:encode(Data).
