@@ -13,7 +13,7 @@ start_link() ->
 	gen_server:start_link({local, rest}, ?MODULE, [], []).
 
 add_resource(Filename) ->
-	Resources = typing2:load(Filename),
+	Resources = resource:load(Filename),
 	io:format("loaded resources= ~p~n", [Resources]),
 	[ gen_server:call(rest, {add, R}) || R <- Resources ],
 

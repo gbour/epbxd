@@ -1,5 +1,5 @@
 
--module(typing2).
+-module(resource).
 -compile(export_all).
 -export([load/1, schema_all/1, schema/1, encode/2, encode_list/2]).
 
@@ -10,6 +10,10 @@ load(File) ->
 	Resources = parse_yaml(Yaml,[]),
 	Resources.
 
+
+%%%
+%%% Parse resource description file (yaml formatted)
+%%%
 
 parse_yaml([], Res) ->
 	Res;
@@ -174,8 +178,8 @@ encode_list(Type, Data) ->
 	jsx:encode([
 		{ref, <<"/api/", Name/binary, "/{1}">>},
 		{start, 0},
-		{count, 2},
-		{total, 2},
+		{count, erlang:length(Data)},
+		{total, erlang:length(Data)},
 		{objects, lists:map(fun(D) -> proplists:get_value(Key, D) end, Data)}
 	]).
 

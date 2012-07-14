@@ -9,6 +9,8 @@ start(normal,_) ->
 	Res = rest:add_resource("types.ws"),
 	io:format("adding resources= ~p~n", [Res]),
 
+	backoffice:init(),
+
 	application:start(cowboy),
 	Dispatch = [
 		{'_', [{'_', ws, []}]}
