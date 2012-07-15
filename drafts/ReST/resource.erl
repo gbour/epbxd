@@ -183,5 +183,36 @@ encode_list(Type, Data) ->
 		{objects, lists:map(fun(D) -> proplists:get_value(Key, D) end, Data)}
 	]).
 
-encode(Type, Data) ->
-	jsx:encode(Data).
+-include("backoffice.hrl").
+
+% NOTE: implicit is_record() guard
+%TODO: filter with fields enumerated in resource, and with capabilities
+encode(Resource=#resource{record=RecordName, fields=Ref}, Data) ->
+	% record to list (inspired from jsonerl)
+	%Fields = record_info(fields, RecordName),
+	Fields = record_info(fields, user),
+	Fields2 = lists:zip(Fields, tl(erlang:tuple_to_list(Data))),
+	Fields3 = encode_field(Ref, Fields2, []),
+
+	jsx:encode(Fields3).
+
+encode_field([],_,Acc) ->
+	Acc;
+encode_field([{Name, #field{type=Type}}|T], Fields, Acc) ->
+	Value  = proplists:get_value(Name, Fields),
+	Value2 = encode_value(Value, Type),
+
+	encode_field(T, Fields, [{Name, Value2}| Acc]).
+
+encode_value(Value, {list,Type}) ->
+	SType = erlang:atom_to_binary(Type,latin1),
+
+	[
+		{ref, <<"/api/",SType/binary,"/{1}">>},
+		{objects, Value}
+	];
+encode_value(Value, _) ->
+	Value.
+
+%encode(Type, Data) ->
+%	jsx:encode(Data).

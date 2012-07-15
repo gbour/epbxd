@@ -23,13 +23,9 @@ handle(Req=#http_req{method=GET,path=[<<"api">>,<<"user">>], buffer=Body}, State
 	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode_list(user, Users), Req), State};
 
 handle(Req=#http_req{method=GET,path=[<<"api">>,<<"user">>, Uid], buffer=Body}, State) ->
-	User = [{uid,1},{name,<<"john">>},
-		{groups, [
-			{ref, <<"/api/group/{1}">>},
-			{objects, [1,3]}
-		]}
-	],
-
-	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode(user, User), Req), State}.
+	Resource = rest:get_resource(user),
+	Record   = backoffice:get(user, erlang:list_to_integer(erlang:binary_to_list(Uid)), []),
+	
+	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode(Resource, Record), Req), State}.
 
 

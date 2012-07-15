@@ -1,6 +1,6 @@
 
 -module(backoffice).
--export([init/0,list/2]).
+-export([init/0,list/2,get/3]).
 
 -include("backoffice.hrl").
 
@@ -19,7 +19,11 @@ list(user, Opts) ->
 	).
 
 get(Object, Id, Opts) ->
-	ok.
+	%case ets:match_object(users, #user{uid=Id, _='_'}) of
+	case ets:lookup(users, Id) of
+		[]    -> undefined;
+		[Res] -> Res
+	end.
 
 
 % ets:match_object(users, {user,'_',<<"gbour">>,'_'}). 
