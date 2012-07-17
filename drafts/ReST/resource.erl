@@ -1,7 +1,7 @@
 
 -module(resource).
 -compile(export_all).
--export([load/1, schema_all/1, schema/1, encode/2, encode_list/2]).
+-export([load/1, schema_all/1, schema/1, encode/2, encode_list/2,decode/3]).
 
 -include("resource.hrl").
 
@@ -216,3 +216,46 @@ encode_value(Value, _) ->
 
 %encode(Type, Data) ->
 %	jsx:encode(Data).
+%
+
+%%%
+%%% DECODE RECEIVED DATA
+%%%
+%%% data is received as a binary stream 
+%%% it is encoded in JSON (or any other encoding format in the futureà
+%%%
+%%% We must decode and check values
+
+decode(user, Raw, Resource=#resource{fields=FieldsDesc}) -> 
+	Fields = jsx:decode(Raw),
+	decode_fields(FieldsDesc, Fields, []).
+
+%
+% NOTE: we do not convert fields name from binary to atom for security reason
+% so we browse FieldsDesc instead, then have finally unmatched fields
+%
+% TODO: handle facultative fields
+decode_fields([], Fields, Acc) ->
+	case length(Fields) of
+		0 -> Acc;
+		_ -> {error, "fields not matched: "++ 
+			string:join(lists:map(fun({K,V}) -> erlang:binary_to_list(K) end,
+					Fields),",")}
+	end;
+decode_fields([{Key, FieldDesc}|T], Fields, Acc) ->
+	Name = erlang:atom_to_binary(Key, latin1),
+
+	case proplists:get_value(Name, Fields) of
+		undefined ->
+			{error, "field "++erlang:atom_to_list(Key)++" missing"};
+		Value ->
+			decode_fields(T, 
+				proplists:delete(Name, Fields), 
+				[{Key, match_field(Value, FieldDesc)}|Acc]
+			)
+	end.
+
+match_field(Value, Desc) ->
+	Value.
+
+

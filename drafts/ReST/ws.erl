@@ -12,20 +12,34 @@ handle(Req=#http_req{method=GET,path=[<<"api">>], buffer=Body}, State) ->
 
 	{ok,cowboy_http_req:reply(200,[], resource:schema_all(Resources), Req),State};
 
-handle(Req=#http_req{method=GET,path=[<<"api">>,Object,<<"schema">>], buffer=Body}, State) ->
+handle(Req=#http_req{method='GET',path=[<<"api">>,Object,<<"schema">>], buffer=Body}, State) ->
 	io:format("Return API :: ~p~n", [Object]),
 	Resource = rest:get_resource(erlang:binary_to_atom(Object, latin1)),
 	{ok,cowboy_http_req:reply(200,[{<<"Content-Type">>, <<"application/json">>}], resource:schema(Resource), Req),State};
 
-handle(Req=#http_req{method=GET,path=[<<"api">>,<<"user">>], buffer=Body}, State) ->
+handle(Req=#http_req{method='GET',path=[<<"api">>,<<"user">>], buffer=Body}, State) ->
 	Users = backoffice:list(user,[]),
 
 	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode_list(user, Users), Req), State};
 
-handle(Req=#http_req{method=GET,path=[<<"api">>,<<"user">>, Uid], buffer=Body}, State) ->
+handle(Req=#http_req{method='GET',path=[<<"api">>,<<"user">>, Uid], buffer=Body}, State) ->
 	Resource = rest:get_resource(user),
 	Record   = backoffice:get(user, erlang:list_to_integer(erlang:binary_to_list(Uid)), []),
 	
-	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode(Resource, Record), Req), State}.
+	{ok, cowboy_http_req:reply(200, [{<<"Content-Type">>, <<"application/json">>}], resource:encode(Resource, Record), Req), State};
 
+handle(Req=#http_req{method='POST', path=[<<"api">>,<<"user">>], buffer=Body}, State) ->
+	Resource = rest:get_resource(user),
+	Object   = resource:decode(user, Body, Resource),
+	io:format(user, ">> ~p ~p~n", [Body, Object]),
 
+	Ret      = backoffice:set(Object, []),
+	io:format(user, ">> backoffice:set= ~p~n", [Ret]),
+
+	{RetCode, Content} = case Ret of
+		{ok, Id}     -> {200, erlang:list_to_binary(erlang:integer_to_list(Id))};
+		{error, Msg} -> {409, Msg}
+	end,
+
+	{ok, cowboy_http_req:reply(RetCode, [{<<"Content-Type">>, <<"application/json">>}],
+		Content, Req), State}.
