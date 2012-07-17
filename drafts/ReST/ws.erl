@@ -42,4 +42,20 @@ handle(Req=#http_req{method='POST', path=[<<"api">>,<<"user">>], buffer=Body}, S
 	end,
 
 	{ok, cowboy_http_req:reply(RetCode, [{<<"Content-Type">>, <<"application/json">>}],
+		Content, Req), State};
+
+handle(Req=#http_req{method='POST', path=[<<"api">>,<<"user">>, _Uid], buffer=Body}, State) ->
+	Resource = rest:get_resource(user),
+	Object   = resource:decode(user, Body, Resource),
+
+	Uid = erlang:list_to_integer(erlang:binary_to_list(_Uid)),
+	io:format(user, "user id= ~p~n", [Uid]),
+	Ret = backoffice:update(user, Uid, Object, []),
+	{RetCode, Content} = case Ret of
+		{ok, Id}            -> {200, <<"">>};
+		{error, Msg}        -> {500, <<"fail to update record">>};
+		{'not-found', Msg2} -> {404, <<"record not found">>}
+	end,
+
+	{ok, cowboy_http_req:reply(RetCode, [{<<"Content-Type">>, <<"application/json">>}],
 		Content, Req), State}.
