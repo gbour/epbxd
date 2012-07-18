@@ -1,6 +1,6 @@
 
 -module(backoffice).
--export([init/0,list/2,get/3,set/2,update/4]).
+-export([init/0,list/2,get/3,set/2,update/4, delete/3]).
 
 -include("backoffice.hrl").
 
@@ -54,6 +54,13 @@ update(user, Id, Values, Opts) ->
 		true        -> {ok         , Id};
 		false       -> {error      , "update fail"};
 		'not-found' -> {'not-found', "user not found"}
+	end.
+
+delete(user, Id, Opts) ->
+	%NOTE: delete() always return true!
+	case ets:delete(users, Id) of
+		true  -> ok;
+		false -> {error, "delete fail"}
 	end.
 
 % ets:match_object(users, {user,'_',<<"gbour">>,'_'}). 

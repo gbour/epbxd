@@ -58,4 +58,14 @@ handle(Req=#http_req{method='POST', path=[<<"api">>,<<"user">>, _Uid], buffer=Bo
 	end,
 
 	{ok, cowboy_http_req:reply(RetCode, [{<<"Content-Type">>, <<"application/json">>}],
-		Content, Req), State}.
+		Content, Req), State};
+
+handle(Req=#http_req{method='DELETE', path=[<<"api">>,<<"user">>, _Uid]}, State) ->
+	Uid = erlang:list_to_integer(erlang:binary_to_list(_Uid)),
+	{Code, Content} = case backoffice:delete(user, Uid, []) of
+		ok           -> {200, []};
+		{error, Msg} -> {500, <<"fail to delete record">>}
+	end,
+
+	{ok, cowboy_http_req:reply(Code, [], Content, Req), State}.
+
