@@ -1,0 +1,1 @@
+erl -pa ../../deps/cowboy/ebin/ ../../deps/jsx/ebin/ ../../deps/yamler/ebin/ ../../deps/yamler/priv/

@@ -1,0 +1,4 @@
+GET -s http://localhost:8080/api/user
+echo '{"uid":500,"name":"jdoe","groups":[]}'|POST -s http://localhost:8080/api/user
+lwp-request -m DELETE -s http://localhost:8080/api/user/502
+
