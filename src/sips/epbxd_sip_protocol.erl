@@ -42,9 +42,9 @@ parse_request(Transport, Socket, [M|Tail]) ->
 	end.
 
 handle(Message=#sip_message{type=request,method=M} , Transport, Socket) ->
-	epbxd_hooks:run({sip,request,M},  {Message, Socket, Transport});
+	epbxd_hooks:run({sip,request,M},  {Message, Transport, Socket});
 handle(Message=#sip_message{type=response,status=S}, Transport, Socket) ->
-	epbxd_hooks:run({sip,response,S}, {Message, Socket, Transport}).
+	epbxd_hooks:run({sip,response,S}, {Message, Transport, Socket}).
 
 terminate(Transport, Socket) ->
 	Transport:close(Socket),
