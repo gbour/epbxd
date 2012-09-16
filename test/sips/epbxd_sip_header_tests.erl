@@ -309,6 +309,23 @@ headers_test_() ->
 		end
 	}.
 
+params_test_() ->
+	{setup, local,
+		fun() ->
+			#sip_address{displayname="demo",params=[{a,1},{b,2}]}
+		end,
+		fun(Addr) ->
+			[
+				 {"key found (b)"             , ?_assertEqual(2, epbxd_sip_header:param(Addr, b))}
+			    ,{"key not found (c)"         , ?_assertEqual(undefined, epbxd_sip_header:param(Addr, c))}
+				,{"key not found (\"b\" string)", ?_assertEqual(undefined, epbxd_sip_header:param(Addr, "b"))}
+				,{"add key/value (c/3)"       , 
+					?_assertEqual(#sip_address{displayname="demo",params=[{c,3},{a,1},{b,2}]}, epbxd_sip_header:param(Addr, c, 3))}
+				,{"replace key/value (a/1 -> a/5)", 
+					?_assertEqual(#sip_address{displayname="demo",params=[{a,5},{b,2}]}, epbxd_sip_header:param(Addr, a, 5))}
+			]
+		end
+	}.
 %decode_test() ->
 %	%% From
 %	?assertEqual(epbxd_sip_header:decode("From", "foobar")                 , invalid),

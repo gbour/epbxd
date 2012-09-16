@@ -19,7 +19,7 @@
 -module(epbxd_sip_header).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([decode/3, decode/2, encode/2, normalize/1, tag/0]).
+-export([decode/3, decode/2, encode/2, normalize/1, tag/0, param/2, param/3]).
 
 -include("utils.hrl").
 -include("epbxd_sip.hrl").
@@ -324,3 +324,19 @@ tag() ->
 			[], lists:seq(1,16)
 	)).
 
+%% @doc Get SIP address parameter
+%%
+%% @returns
+%%		undefined if param not found
+%%		param value else
+%%
+param(#sip_address{params=Params}, Name) ->
+	proplists:get_value(Name, Params).
+
+param(Addr=#sip_address{params=Params}, Name, Value) ->
+	Params2 = case proplists:get_value(Name, Params) of
+		undefined -> [{Name,Value} | Params];
+		_         -> lists:keyreplace(Name, 1, Params, {Name, Value})
+	end,
+
+	Addr#sip_address{params=Params2}.
