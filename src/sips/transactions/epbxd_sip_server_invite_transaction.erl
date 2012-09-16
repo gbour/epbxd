@@ -131,7 +131,7 @@ idle({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _
 %% @sync
 %% @private
 %%
-%% Send back last provisional response (stop hiik execution)
+%% Send back last provisional response (stop hook execution)
 %% 
 -spec proceeding({sip_message(), atom(), any()}|{atom(), sip_message(), atom(), any()}, any(), #state{}) -> 
 	{reply, ok|{error,atom()}, atom(), #state{}}.
@@ -239,7 +239,7 @@ completed(timeoutH, StateData=#state{tRefG=TRefG}) ->
 %%
 -spec completed(sip_message(), any(), #state{}) -> 
 	{reply, ok|{error,atom()}, atom(), #state{}} | {reply, {stop,ack}, confirmed, #state{}, integer()|infinity}.
-completed(Request=#sip_message{type=request, method='INVITE'}, _From, StateData=#state{tRefG=TRefG, response={Response,	Transport, Socket}, transaction=Transaction}) ->
+completed({Request=#sip_message{type=request, method='INVITE'},_,_}, _From, StateData=#state{tRefG=TRefG, response={Response, Transport, Socket}, transaction=Transaction}) ->
 	_Remains = gen_fsm:cancel_timer(TRefG),
 
 	{Reply, NewState, NewStateData} = case
@@ -261,7 +261,7 @@ completed(Request=#sip_message{type=request, method='INVITE'}, _From, StateData=
 %%
 %% Go to *confirmed* state (canceling timerG)
 %% NOTE: ACK request is not transmited to TU
-completed(#sip_message{type=request, method='ACK'}, _From, StateData=#state{tRefG=TRefG, tRefH=TRefH, transaction=Transaction}) ->
+completed({#sip_message{type=request, method='ACK'},_,_}, _From, StateData=#state{tRefG=TRefG, tRefH=TRefH, transaction=Transaction}) ->
 	% cancel timerG
 	_Remains1 = gen_fsm:cancel_timer(TRefG),
 	_Remains2 = gen_fsm:cancel_timer(TRefH),
