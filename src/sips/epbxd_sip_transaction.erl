@@ -18,7 +18,7 @@
 % @doc epbxd SIP transactions API
 -module(epbxd_sip_transaction).
 
--export([init/1, send/3, destroy/3, get_transaction/1]).
+-export([init/1, send/3, destroy/3, get_transaction/1, get/3]).
 
 -include("epbxd_sip.hrl").
 -include("utils.hrl").
@@ -45,6 +45,45 @@ init(Opts) ->
 	),
 
 	ok.
+
+%% @doc Get a transaction from its ets pool
+%%
+%% If not found, a new transaction is *optionaly* reserved from poolboy supply
+%%
+%% @params
+%%   Type   : type of requested transaction ('client' or 'server')
+%%   Id     : transaction ID (branchID + method)
+%%   Method : transaction method (part of ID)
+%%   New    : shall we create new transaction of not found in ets (boolean)
+%%
+%% @returns
+%%	 the transaction if found or successfully created
+%%	 {error, 'not-found'} if transaction not found (and we don't want to reserve a new one)
+%%	 {error, 'empty-pool'} if not found and free transactions pool is empty
+%%
+-spec get(client|server, {atom(), 'INVITE'|atom()}, boolean()) -> {error, atom()} | {atom(), pid()}.
+get(Type, Id={_, Method}, New) ->
+	case ets:lookup(transactions, Id) of
+		[{Id, Transaction}] -> Transaction;
+		_                   -> checkout(New, Type, Id)
+	end.
+
+%% @checkout a new transaction from poolboy pool
+-spec checkout(boolean(), client|server, {atom(), 'INVITE'|atom()}) -> {error, atom()} | {atom(), pid()}.
+checkout(false,_,_) ->
+	{error, 'not-found'};
+checkout(true, Type, Id={_,Method}) ->
+	% transaction does not exists yet
+	Mod = select_fsm(Type, Method),
+	case poolboy:checkout(Mod) of
+		full ->
+			{error, 'empty-pool'};
+
+		Fsm  ->
+			ets:insert(transactions, {Id, {Mod, Fsm}}),
+			{Mod, Fsm}
+	end.
+
 
 %% @doc Send a request (INVITE, BYE, ...)
 %%
