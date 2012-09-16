@@ -23,3 +23,7 @@ str_test() ->
 	?assertEqual("foobar", utils:str(<<"foobar">>)),
 	ok.
 
+in_test() ->
+	?assertEqual(true , utils:in(42, [12, 42, 34])),
+	?assertEqual(false, utils:in(42, [12, 24, 34])),
+	ok.
