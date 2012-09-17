@@ -62,12 +62,12 @@ transaction(_, {Response=#sip_message{headers=Headers}, _Sock, _Transport}, Stat
 	},
 
 	?DEBUG("Starting transaction handler. Transaction ID= ~p", [TransId]),
-	ontrans(ets:lookup(transactions, TransId), Response, State).
+	dispatch(epbxd_sip_transaction:get(server, TransId, utils:in(new, Opts)), Message, State).
 
-ontrans([], _, _) ->
+dispatch({error, Msg},_,_) ->
 	?DEBUG("Transaction not found", []),
 	{error, transaction_not_found};
-ontrans([{_, {Mod, Fsm}}], Response, State) ->
+dispatch(Transaction={Mod, Fsm}, {Message, Transport, Socket}, State) ->
 	%Transaction = epbxd_sip_transaction:get_transaction(Fsm),
 	%?DEBUG("Transaction found: ~p", [Transaction]),
 	?DEBUG("Transaction found", []),
