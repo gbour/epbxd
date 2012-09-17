@@ -58,7 +58,7 @@ stop() ->
 transaction(_, {Response=#sip_message{headers=Headers}, _Sock, _Transport}, State, _Opts) ->
 	TransId = {
 		proplists:get_value("branch", (hd(proplists:get_value('Via', Headers)))#sip_via.params),
-		element(2, (proplists:get_value('CSeq', Headers))) % {117, INVITE} -> INVITE
+		utils:atom(element(2, (proplists:get_value('CSeq', Headers)))) % {117, INVITE} -> INVITE
 	},
 
 	?DEBUG("Starting transaction handler. Transaction ID= ~p", [TransId]),
