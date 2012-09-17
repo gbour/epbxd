@@ -32,6 +32,13 @@ poolboy:
 	cd $@ && git pull --rebase
 	@$(MAKE) -C $@/
 
+eretrie:
+	if [ ! -d $@ ]; then\
+		git clone https://github.com/gbour/eretrie;\
+	fi
+	cd $@ && git pull --rebase
+	@$(MAKE) -C $@/
+
 meck:
 	if [ ! -d $@ ]; then\
 		git clone https://github.com/eproxus/meck;\
@@ -42,4 +49,4 @@ meck:
 clean:
 	find ./* -prune -type d -exec rm -Rf '{}' \;
 
-.PHONY: rebar cowboy jsonerl poolboy meck
+.PHONY: rebar cowboy jsonerl poolboy eretrie meck
