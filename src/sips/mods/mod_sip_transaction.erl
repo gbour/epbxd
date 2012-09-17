@@ -36,6 +36,8 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
+	epbxd_hooks:add({sip,request,'INVITE'}, 20, {?MODULE, transaction}, [new|Opts]), % Ringing
+
 	epbxd_hooks:add({sip,response,180}, 20, {?MODULE, transaction}, Opts), % Ringing
 	epbxd_hooks:add({sip,response,200}, 20, {?MODULE, transaction}, Opts), % OK
 	ok.
@@ -55,7 +57,7 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 %-spec invite(tuple(), tuple(), any()) -> tuple(ok, any()).
-transaction(_, {Response=#sip_message{headers=Headers}, _Sock, _Transport}, State, _Opts) ->
+transaction(_, Message={#sip_message{headers=Headers},_,_}, State, Opts) ->
 	TransId = {
 		proplists:get_value("branch", (hd(proplists:get_value('Via', Headers)))#sip_via.params),
 		utils:atom(element(2, (proplists:get_value('CSeq', Headers)))) % {117, INVITE} -> INVITE
@@ -72,12 +74,19 @@ dispatch(Transaction={Mod, Fsm}, {Message, Transport, Socket}, State) ->
 	%?DEBUG("Transaction found: ~p", [Transaction]),
 	?DEBUG("Transaction found", []),
 
-	case Mod:receipt(Fsm, Response) of
-		{ok, Response, Transaction} ->
+	case Mod:receipt(Fsm, Message, Transport, Socket) of
+		%{ok, Message, Transaction} ->
+		ok              ->
 			{next, [{transaction,Transaction}|State]};
 
-		{stop, _Reason}  ->
+		{stop, Reason}  ->
 			% TODO: should return an error response to client
-			{stop, State}
+			?DEBUG("stop: ~p", [Reason]),
+			{stop, State};
+
+		{error, Reason} ->
+			%TODO: log
+			?DEBUG("error: ~p", [Reason]),
+			{error, Reason}
 	end.
 
