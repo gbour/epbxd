@@ -35,7 +35,7 @@ ebin/epbxd.cfg: etc/epbxd.cfg
 	     $< > $@
 
 run: ebin/epbxd.app ebin/epbxd.cfg
-	cd ebin/ && erl -sname epbxd -pa ../deps/cowboy/ebin/ ../deps/poolboy/ebin applications/ -eval "application:start(epbxd)"
+	cd ebin/ && erl -sname epbxd -pa ../deps/cowboy/ebin/ ../deps/poolboy/ebin ../deps/eretrie/ebin applications/ dialplans/ -eval "application:start(epbxd)"
 
 runtest:
 	for i in `find ebin -iname "*_tests.beam"`; do \

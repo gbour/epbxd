@@ -29,6 +29,8 @@ start(normal, _Args) ->
 	% load modules
 	modules_load(),
 
+	% starting dialplan
+	dialplan_init(),
 
 	% start webservice
 	application:start(cowboy),
@@ -123,6 +125,16 @@ modules_load() ->
 		config:get(modules)
 	),
 
+	ok.
+
+dialplan_init() ->
+	epbxd_dialplan:start_link(),
+
+	lists:foreach(fun({Extension, Callback}) ->
+			epbxd_dialplan:add(Extension, Callback)
+		end,
+		config:get(dialplan)
+	),
 	ok.
 
 % Create system-wide tables
