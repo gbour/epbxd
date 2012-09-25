@@ -22,8 +22,11 @@
 }).
 -type call_peer() :: #call_peer{}.
 
+-type call_state() :: pending | answered | hanguped.
+
 -record(call_channel, {
 	id     = {}        :: tuple(),
+	state  = undefined :: undefined | call_state(),
 	% active application
 	action = undefined :: undefined | atom(),
 

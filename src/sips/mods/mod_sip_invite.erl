@@ -55,7 +55,10 @@ stop() ->
 %% Implement process described in RFC 3261, section 13.3.1
 %%
 -spec invite(tuple(), tuple(), any(), list()) -> tuple(next, any()).
-invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
+invite(_, {Request=#sip_message{headers=Headers}, Transport, Socket}, State, _) ->
+	% read transaction from State
+	Transaction = proplists:get_value(transaction, State),
+
 	% create dialog for caller
 	Dialog = #sip_dialog{
 		callid = proplists:get_value('Call-ID', Headers),
@@ -68,12 +71,6 @@ invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 		updated = calendar:universal_time()
 	},
 	mnesia:dirty_write(dialogs, Dialog),
-
-	% 100 Trying
-	epbxd_sip_routing:send(
-		epbxd_sip_message:response(trying, Request),
-		Transport, Sock
-	),
 
 	% lookup caller. Is he authenticated
 	User = (proplists:get_value('From', Headers))#sip_address.uri#sip_uri.user,
@@ -90,12 +87,14 @@ invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 			Id = epbxd_sip_header:tag(),
 			Chan = #call_channel{
 				id = Id,
+				state  = 'pending',
 				action = 'INVITE',
 				source = #call_peer{type='sip', peer=#sip_stub{
 					dialog    = Dialog#sip_dialog{chanid=Id},
-					socket    = Sock,
+					socket    = Socket,
 					transport = Transport,
-					ref       = Request
+					ref       = Request,
+					transaction = Transaction
 				}},
 				target = undefined
 			},
@@ -103,12 +102,13 @@ invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 			mnesia:dirty_write(dialogs , Dialog#sip_dialog{chanid=Id}),
 
 			case
-				epbxd_dialplan:dispatcher(utils:bin(To), Chan)
+				epbxd_dialplan:dispatch(utils:str(To), Chan)
 			of
 				{error, not_found} ->
 					epbxd_sip_routing:send(
-						epbxd_sip_message:response('not-found', Request),
-						Transport, Sock
+						%epbxd_sip_message:response('not-found', Request),
+						epbxd_sip_message:build_response('not-found', Request),
+						Transport, Socket
 					);
 
 				_				   ->
@@ -118,8 +118,9 @@ invite(_, {Request=#sip_message{headers=Headers}, Sock, Transport}, State, _) ->
 		[]      -> 
 			?DEBUG("Source endpoint not found",[]),
 			epbxd_sip_routing:send(
-				epbxd_sip_message:response(forbidden, Request),
-				Transport, Sock
+				%epbxd_sip_message:response(forbidden, Request),
+				epbxd_sip_message:build_response(forbidden, Request),
+				Transport, Socket
 			)
 	end,
 

@@ -176,7 +176,9 @@
 
 	socket    = undefined,
 	transport = undefined,
-	ref       = undefined
+	ref       = undefined,
+	% actual transaction
+	transaction = undefined
 }).
 -type sip_stub() :: #sip_stub{}.
 

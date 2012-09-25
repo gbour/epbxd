@@ -59,6 +59,7 @@ ring(To, _Opts) ->
 	response(ringing, To).
 
 accept(To, _Opts) ->
+	%WARNING: after that, invite transaction is deleted
 	response(ok, To).
 
 hangup(_To=#sip_stub{dialog=Dialog}, _Opts) ->
@@ -71,9 +72,10 @@ hangup(_To=#sip_stub{dialog=Dialog}, _Opts) ->
 
 
 
-response(Type, #sip_stub{socket=S,transport=T,ref=R}) ->
+response(Type, #sip_stub{socket=S,transport=T,ref=R,transaction={Mod,Fsm}}) ->
 	io:format(user, "do response ~p: ~p~n", [Type, R]),
-	epbxd_sip_routing:send(epbxd_sip_message:response(Type, R), T, S).
+	%epbxd_sip_routing:send(epbxd_sip_message:response(Type, R), T, S).
+	Mod:send(Fsm, epbxd_sip_message:response(Type, R), T, S).
 
 request(Type, Registration=#registration{uri=Uri}, _Opts, Channel) ->
 	% TODO: transport should be determined from target context (registrations Table)

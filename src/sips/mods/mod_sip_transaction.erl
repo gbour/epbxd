@@ -36,7 +36,7 @@
 -spec start(list(any())) -> ok|fail.
 start(Opts) ->
 	% registering hooks
-	epbxd_hooks:add({sip,request,'INVITE'}, 20, {?MODULE, transaction}, [new|Opts]), % Ringing
+	epbxd_hooks:add({sip,request,'INVITE'}, 20, {?MODULE, transaction}, [new|Opts]),
 
 	epbxd_hooks:add({sip,response,180}, 20, {?MODULE, transaction}, Opts), % Ringing
 	epbxd_hooks:add({sip,response,200}, 20, {?MODULE, transaction}, Opts), % OK
