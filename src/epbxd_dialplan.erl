@@ -18,20 +18,63 @@
 % @doc Dialplan handling
 -module(epbxd_dialplan).
 -author("Guillaume Bour <guillaume@bour.cc>").
+-behaviour(gen_server).
 
 % API
--export([dispatcher/2]).
+-export([start_link/0, add/2, dispatch/2]).
+% gen_server interface
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-include("utils.hrl").
 -include("epbxd_dialplan.hrl").
 -include("epbxd_channel.hrl").
 
+start_link() ->
+	gen_server:start_link({local, epbxd_dialplan}, ?MODULE, [], []).
+
+init(_) ->
+	{ok, {retrie, []}}.
+
+add(Re, {Mod, Fun}) ->
+	gen_server:call(epbxd_dialplan, {add, Re, {Mod, Fun}}).
+
 %% @doc Dispatch a call following dialplan routing
 %%
--spec dispatcher(binary(), #call_channel{}) -> any().
-dispatcher(Extension, Channel) ->
+-spec dispatch(binary(), #call_channel{}) -> any().
+dispatch(Extension, Channel) ->
 	io:format(user, "dialplan:dispatcher= ~p~n", [Extension]),
-	app_dial:exec(Extension, [], Channel).
+	%app_dial:exec(Extension, [], Channel).
+	case gen_server:call(epbxd_dialplan, {dispatch, Extension}) of
+		{error, Reason} ->
+			?DEBUG("dispatcher:fail= ~p", [Reason]),
+			{error, Reason};
 
+		{ok, Callbacks} ->
+			?DEBUG("dispatcher:success= ~p", [Callbacks]),
+			{Mod, Fun} = Callbacks,
+			Mod:Fun(Extension, Channel)
+	end.
+
+handle_call({add, Re, Action}, _From, State) ->
+	State2 = retrie:merge(State, retrie:reduce(retrie:encode(Re, Action))),
+
+	{reply, ok, State2};
+
+handle_call({dispatch, Extension}, _From, State) ->
+	?DEBUG("dialplan:dispatch= ~p ~p~n", [State, Extension]),
+	{reply, {ok, retrie:match(State, Extension)}, State}.
+
+handle_cast(_Req, _State) ->
+	{noreply, _State}.
+
+handle_info(_Info, _State) ->
+	{noreply, _State}.
+
+terminate(_Reason, _State) ->
+	ok.
+
+code_change(_Old, _State, _Extra) ->
+	{ok, _State}.
 
 %internal(<<"140">>, Context) ->
 %	io:format("140~n",[]);
