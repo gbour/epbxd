@@ -66,6 +66,9 @@ main_test_() ->
 				   true     -> provisional
 				end
 			end),
+			meck:expect(epbxd_sip_message, build_response, fun(T,R) ->
+				foobar
+			end),
 
 			{ok, Pid} = epbxd_sip_server_invite_transaction:start_link([]),
 			Pid
@@ -135,10 +138,10 @@ test_invite(Pid, fail) ->
 	generic_fsm(Pid, request, idle, fake_transport_err, {idle, {error, "faking transport failure"}, undefined}); 
 
 test_invite(Pid, udp)  ->
-	generic_fsm(Pid, request, idle, fake_transport_udp, {proceeding, ok, barfoo}).
+	generic_fsm(Pid, request, idle, fake_transport_udp, {proceeding, ok, foobar}).
 
 test_proceeding(Pid, udp, invite) ->
-	generic_fsm(Pid, request, proceeding, fake_transport_udp, {proceeding, {stop, retransmission}, barfoo});
+	generic_fsm(Pid, request, proceeding, fake_transport_udp, {proceeding, {stop, retransmission}, foobar});
 
 test_proceeding(Pid, udp, provisional) ->
 	Resp = #sip_message{type=response,status=100},

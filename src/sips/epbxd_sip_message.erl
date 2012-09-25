@@ -20,7 +20,7 @@
 -author("Guillaume Bour <guillaume@bour.cc>").
 
 % API
--export([decode/1, encode/1, req2meth/1, request/4, response/2, response/3, response_type/1]).
+-export([decode/1, encode/1, req2meth/1, request/4, response/2, response/3, response_type/1, build_response/2]).
 
 -ifdef(debug).
 	-export([decode/3, to/2]).
@@ -395,3 +395,43 @@ response_type(Code) when Code >= 500 andalso Code < 600 ->
 	server_failure;
 response_type(Code) when Code >= 600 andalso Code < 700 ->
 	global_failure.
+
+%
+% TEMP :: used for response()
+%
+
+% for 'trying' response, To is copyed *as-is* (with tag or not)
+build_response(trying, Request=#sip_message{type=request,headers=Headers}) ->
+	Response = build_response_basic(trying, Request),
+	Response#sip_message{headers=[
+		{'To', proplists:get_value('To', Headers)}
+		|Response#sip_message.headers
+	]};
+% for other response, tag is append for To header if not defined
+build_response(Type, Request=#sip_message{type=request,headers=Headers}) ->
+	Response = build_response_basic(Type, Request),
+	To = proplists:get_value('To', Headers),
+
+	To2 = case epbxd_sip_header:param(To, 'tag') of
+		undefined -> epbxd_sip_header:param(To, 'tag', epbxd_sip_header:tag());
+		_         -> To
+	end,
+
+	Response#sip_message{headers=[{'To', To2}|proplists:delete('To', Headers)]}.
+
+build_response_basic(Type, #sip_message{type=request,headers=Headers}) ->
+	{Status, Reason} = status(Type),
+	
+	#sip_message{
+		type    = response,
+		status  = Status,
+		reason  = Reason,
+		headers = [
+			{'Via'    , proplists:get_value('Via'    , Headers)},
+			{'From'   , proplists:get_value('From'   , Headers)},
+			{'Call-ID', proplists:get_value('Call-ID', Headers)},
+			{'CSeq'   , proplists:get_value('CSeq'   , Headers)}
+		]
+	}.
+
+

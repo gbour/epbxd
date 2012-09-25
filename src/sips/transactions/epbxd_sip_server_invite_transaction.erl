@@ -99,7 +99,9 @@ idle({Request=#sip_message{type=request, method='INVITE'}, Transport, Socket}, _
 	%?DEBUG("fsm: idle->calling (state=~p)",[Transaction]),
 	% send 100 Trying to the peer
 	%%Response = trying(),
-	Response= foobar,
+	%%Response= foobar,
+	Response = epbxd_sip_message:build_response(trying, Request),
+	?DEBUG("srv_invite_trans:idle::response= ~p", [Response]),
 
 	{Reply, NewState, NewStateData} = case
 		epbxd_sip_routing:send(Response, Transport, Socket)
