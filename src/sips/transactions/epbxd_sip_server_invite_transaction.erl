@@ -65,8 +65,8 @@ cleanup(#state{transaction=Transaction}) ->
 %% The message go through the fsm.
 %% Sending need the fsm to be in idle state
 -spec send(pid(), #sip_message{}, atom(), any()) -> ok.
-send(Pid, Response=#sip_message{type=response}, Transport, Socket) ->
-	gen_fsm:sync_send_event(Pid, {epbxd_sip_message:response_type(Response), Response, Transport, Socket}).
+send(Pid, Response=#sip_message{type=response, status=Status}, Transport, Socket) ->
+	gen_fsm:sync_send_event(Pid, {epbxd_sip_message:response_type(Status), Response, Transport, Socket}).
 
 %% @doc Receive a SIP INVITE
 %%

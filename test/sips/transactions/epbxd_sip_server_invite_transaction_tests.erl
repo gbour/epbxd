@@ -60,10 +60,10 @@ main_test_() ->
 			end),
 
 			meck:new(epbxd_sip_message),
-			meck:expect(epbxd_sip_message, response_type, fun(M) -> 
-				if M#sip_message.status >= 300 -> M#sip_message.status;
-				   M#sip_message.status >= 200 -> final;
-				   true                        -> provisional
+			meck:expect(epbxd_sip_message, response_type, fun(S) -> 
+				if S >= 300 -> S;
+				   S >= 200 -> final;
+				   true     -> provisional
 				end
 			end),
 
