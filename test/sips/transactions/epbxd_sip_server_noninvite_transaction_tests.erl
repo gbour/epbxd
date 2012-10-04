@@ -251,7 +251,7 @@ test_transition(From=completed, To=terminated, timeout, Pid, Transport) ->
 
 		[
 			?assertEqual(From, FromState)
-			,?assertEqual(To, get_state_name(Pid))
+			,?assertEqual(idle, get_state_name(Pid))
 		]
 	end}.
 

@@ -182,8 +182,7 @@ proceeding({_, Response, Transport, Socket}, _From, StateData=#state{transaction
 % @async
 % timerJ
 completed(timeoutJ, State) ->
-	io:format(user,"timerJ timeout~n",[]),
-	{next_state, terminated, State}.
+	{next_state, terminated, State, 0}.
 
 completed({Request=#sip_message{type=request}, Transport, Socket}, _From, StateData=#state{response={Response,_,_}}) ->
 	% TODO: send last provisional response
@@ -198,10 +197,9 @@ completed({Request=#sip_message{type=request}, Transport, Socket}, _From, StateD
 
 % @async
 % NOTE: do not confuse with terminated() fsm callback
-terminated(_, State) ->
-	?DEBUG("fsm state change: plop terminated",[]),
+terminated(_, StateData) ->
 	% destroy transaction
-	{next_state, idle, #sip_transaction{}}.
+	{next_state, idle, cleanup(StateData)}.
 
 
 %%
