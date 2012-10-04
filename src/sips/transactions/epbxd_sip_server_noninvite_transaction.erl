@@ -25,7 +25,7 @@
 % public API
 -export([start_link/1, send/4, receipt/4, get_transaction/1]).
 % private API
--export([init/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+-export([init/1, cleanup/1, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 % states handlers
 -export([idle/3, trying/3, proceeding/3, completed/2, completed/3, terminated/2]).
 
@@ -33,7 +33,9 @@
 -include("sips/epbxd_sip.hrl").
 
 -record(state, {
-	timergRef,
+	tRefJ,
+	% for responses retransmission (we memorise last response)
+	response = undefined,
 	transaction
 }).
 
@@ -49,7 +51,14 @@ start_link(Args) ->
 %%
 -spec init(list()) -> {ok, idle, #state{}}.
 init(Args) ->
-	{ok, idle, #state{transaction=#transaction{fsm=?MODULE, fsmid=self()}}}.
+	{ok, idle, #state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}}.
+
+%% @doc cleanup fsm state data
+%%
+-spec cleanup(#state{}) -> #state{}.
+cleanup(#state{transaction=Transaction}) ->
+	epbxd_sip_transaction:destroy(?MODULE, self(), Transaction),
+	#state{transaction=#sip_transaction{fsm=?MODULE, fsmid=self()}}.
 
 %% @doc Send a SIP message
 %%
@@ -63,23 +72,26 @@ send(Pid, Response=#sip_message{type=response}, Transport, Socket) ->
 %%
 %% Go through the transaction fsm
 %%
-%-spec recept(pid(), #sip_message{}) -> ok.
-receipt(Pid, Message, Transport, Socket) ->
-	gen_fsm:sync_send_event(Pid, {Message, Transport, Socket}).
+-spec receipt(pid(), sip_message(), atom(), any()) -> ok.
+receipt(Pid, Request=#sip_message{type=request}, Transport, Socket) ->
+	gen_fsm:sync_send_event(Pid, {Request, Transport, Socket}).
 
 %% @doc
 %%
--spec get_transaction(pid()) -> #transaction{}.
+-spec get_transaction(pid()) -> #sip_transaction{}.
 get_transaction(Pid) ->
 	% use handke_info/handle_event instead ?
 	{status,_,_,[_,running,_,_,[_,_,{data,[{_,State}]}]]} = sys:get_status(Pid),
 	State#state.transaction.
 
+
 %%
 %% FSM STATES/TRANSITIONS
 %%
 
-% @sync
+
+%% @doc *idle* state :: receive non INVITE request
+%% @sync
 % receive a non-INVITE request from peer
 idle({Request=#sip_message{type=request}, Transport, Socket}, _From, State=#state{transaction=Transaction}) ->
 	%?DEBUG("fsm: idle->calling (state=~p)",[Transaction]),
@@ -88,13 +100,13 @@ idle({Request=#sip_message{type=request}, Transport, Socket}, _From, State=#stat
 
 	Transaction2 = case epbxd_sip_routing:is_reliable(Transport:name()) of
 		false ->
-			Transaction#transaction{
-				timerG=Transaction#transaction.t1,
+			Transaction#sip_transaction{
+				timerJ=64*Transaction#sip_transaction.t1,
 				request={Request, Transport, Socket}};
 
 		_     ->
-			Transaction#transaction{
-				timerH=64*Transaction#transaction.t1,
+			Transaction#sip_transaction{
+				timerJ=0,
 				request={Request, Transport, Socket}
 			}
 	end,
@@ -102,9 +114,21 @@ idle({Request=#sip_message{type=request}, Transport, Socket}, _From, State=#stat
 	% return ok, so non-INVITE hook execution continue
 	{reply, ok, trying, State#state{transaction=Transaction2}}.
 
-trying({provisional, Response, Transport, Socket}, _From, State) ->
+% @sync
+% 1xx responses
+trying({provisional, Response, Transport, Socket}, _From, StateData) ->
 	% TODO: send response
-	{reply, ok, proceeding, State};
+	{Reply, NewState, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              -> 
+			{ok, proceeding, StateData#state{response={Response,Transport, Socket}}};
+			
+		{error, Reason} -> 
+			{{error, Reason}, trying, StateData}
+	end,
+
+	{reply, Reply, NewState, NewStateData};
 
 % @sync
 % 2xx to 6xx responses
@@ -113,36 +137,69 @@ trying({_, Response, Transport, Socket}, _From, State) ->
 	{reply, ok, completed, State}.
 
 % @sync
-proceeding(Request=#sip_message{type=request}, _From, State) ->
+proceeding({Request=#sip_message{type=request}, Transport, Socket}, _From, StateData=#state{response={Response,_,_}}) ->
+	% TODO: check received request is the same as the one who initiated the transaction
 	% TODO: send last response
-	{reply, {stop, ignore}, proceeding, State};
+	Reply = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              -> 
+			{stop, ignore};
+			
+		{error, Reason} -> 
+			{error, Reason}
+	end,
+
+	{reply, Reply, proceeding, StateData};
 
 % @sync
-proceeding({provisional, Response, Transport, Socket}, _From, State) ->
+% send a new provisional response (may be different from the 1st)
+proceeding({provisional, Response, Transport, Socket}, _From, StateData) ->
 	% TODO: send response to the peer
-	{reply, ok, proceeding, State};
+	{Reply, NewStateData} = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              -> 
+			{ok, StateData#state{response={Response,Transport,Socket}}};
+
+		{error, Reason} ->
+			{{error,Reason}, StateData}
+	end,
+
+	{reply, Reply, proceeding, NewStateData};
 
 % @sync
 % 2xx to 6xx response from TU
-proceeding({_, Response}, _From, State=#state{transaction=Transaction}) ->
+proceeding({_, Response, Transport, Socket}, _From, StateData=#state{transaction=Transaction}) ->
 	% TODO: send response to the peer
-	{reply, ok, completed, State, State#state.transaction#transaction.timerJ}.
+	Reply = epbxd_sip_routing:send(Response, Transport, Socket),
+
+	io:format(user, "timerJ= ~p~n", [Transaction#sip_transaction.timerJ]),
+	TRefJ = gen_fsm:send_event_after(Transaction#sip_transaction.timerJ, timeoutJ),
+
+	{reply, Reply, completed, StateData#state{tRefJ=TRefJ,response={Response,Transport,Socket}}}.
 
 % @async
 % timerJ
-completed(timeout, State) ->
-	{next_state, terminated, State}.
+completed(timeoutJ, State) ->
+	{next_state, terminated, State, 0}.
 
-completed(Request=#sip_message{type=request}, _From, State) ->
+completed({Request=#sip_message{type=request}, Transport, Socket}, _From, StateData=#state{response={Response,_,_}}) ->
 	% TODO: send last provisional response
-	{reply, {ok, Request}, completed, State}.
+	Reply = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              -> {ok, Request};
+		{error, Reason} -> {error, Reason}
+	end,
+
+	{reply, Reply, completed, StateData}.
 
 % @async
 % NOTE: do not confuse with terminated() fsm callback
-terminated(_, State) ->
-	?DEBUG("fsm state change: plop terminated",[]),
+terminated(_, StateData) ->
 	% destroy transaction
-	{next_state, idle, #transaction{}}.
+	{next_state, idle, cleanup(StateData)}.
 
 
 %%
