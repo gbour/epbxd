@@ -39,6 +39,20 @@ eretrie:
 	cd $@ && git pull --rebase
 	@$(MAKE) -C $@/
 
+rtplib:
+	if [ ! -d $@ ]; then\
+		git clone https://github.com/lemenkov/rtplib;\
+	fi
+	cd $@ && git pull --rebase
+	@$(MAKE) -C $@/
+
+erlrtpproxy:
+	if [ ! -d $@ ]; then\
+		git clone https://github.com/lemenkov/erlrtpproxy;\
+	fi
+	cd $@ && git pull --rebase
+	@$(MAKE) -C $@/
+
 meck:
 	if [ ! -d $@ ]; then\
 		git clone https://github.com/eproxus/meck;\
@@ -49,4 +63,4 @@ meck:
 clean:
 	find ./* -prune -type d -exec rm -Rf '{}' \;
 
-.PHONY: rebar cowboy jsonerl poolboy eretrie meck
+.PHONY: rebar cowboy jsonerl poolboy eretrie meck rtplib
