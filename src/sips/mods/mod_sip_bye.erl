@@ -56,7 +56,11 @@ stop() ->
 %%
 -spec bye(tuple(), tuple(), any(), list()) -> tuple(next, any()).
 bye(_, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
-    io:format(user, "receive BYE request~n",[]),
+	% read transaction from State
+	Transaction = proplists:get_value(transaction, State),
+	{Mod,Fsm} = Transaction,
+
+    io:format(user, "receive BYE request (trans=~p)~n",[Transaction]),
 
     % Searching matching dialog
     CallID = proplists:get_value('Call-ID', Headers),
@@ -71,30 +75,31 @@ bye(_, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
 			[Chan] = mnesia:dirty_read(channels, Dialog#sip_dialog.chanid),
             io:format(user, "Channel= ~p~n", [Chan]),
 
-			case Chan#call_channel.action of
-				% INVITE action
-				'INVITE' ->
-					% Send BYE to peer
-					% NOTE: peer may be target OR source!!!
-					%
-					Peer =
-						if Dialog =:= Chan#call_channel.source#call_peer.peer#sip_stub.dialog ->
-							Chan#call_channel.target;
-						true ->
-							Chan#call_channel.source
-						end,
-					io:format(user, "Peer= ~p~n", [Peer]),
-					epbxd_channel:hangup(Peer, [])
-			end,
+%			case Chan#call_channel.action of
+%				% INVITE action
+%				'INVITE' ->
+%					% Send BYE to peer
+%					% NOTE: peer may be target OR source!!!
+%					%
+%					Peer =
+%						if Dialog =:= Chan#call_channel.source#call_peer.peer#sip_stub.dialog ->
+%							Chan#call_channel.target;
+%						true ->
+%							Chan#call_channel.source
+%						end,
+%					io:format(user, "Peer= ~p~n", [Peer]),
+%					epbxd_channel:hangup(Peer, [])
+%			end,
 
 			% send OK to originator
 			Via = hd(proplists:get_value('Via', Headers)),
-			epbxd_sip_routing:send(
+			Mod:send(Fsm,
 				epbxd_sip_message:response(ok, Request),
 				epbxd_udp_transport,{nil, Via#sip_via.host, nil}
 			),
 
 			% NOTE: peer dialog will be deleted when OK received
+			io:format(user, "delete dialog & channel~n",[]),
 			mnesia:dirty_delete_object(dialogs, Dialog),
 			mnesia:dirty_delete_object(channels, Chan),
             ok;
@@ -105,7 +110,8 @@ bye(_, {Request=#sip_message{headers=Headers}, _Sock, _Transport}, State, _) ->
 			Via = hd(proplists:get_value('Via', Headers)),
 			io:format(user, "Via= ~p~n", [Via]),
 
-			epbxd_sip_routing:send(
+			%NOTE: responses must be sent through the transaction
+			Mod:send(Fsm,
 				epbxd_sip_message:response('dont-exists', Request),
 				epbxd_udp_transport, {nil,Via#sip_via.host,nil}
 			)
