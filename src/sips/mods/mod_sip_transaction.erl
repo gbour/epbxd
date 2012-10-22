@@ -37,6 +37,8 @@
 start(Opts) ->
 	% registering hooks
 	epbxd_hooks:add({sip,request,'INVITE'}, 20, {?MODULE, transaction}, [new|Opts]),
+	epbxd_hooks:add({sip,request,'ACK'}   , 20, {?MODULE, transaction}, [new|Opts]), 
+	epbxd_hooks:add({sip,request,'BYE'}   , 20, {?MODULE, transaction}, [new|Opts]), 
 
 	epbxd_hooks:add({sip,response,180}, 20, {?MODULE, transaction}, Opts), % Ringing
 	epbxd_hooks:add({sip,response,200}, 20, {?MODULE, transaction}, Opts), % OK
@@ -87,6 +89,10 @@ dispatch(Transaction={Mod, Fsm}, {Message, Transport, Socket}, State) ->
 		{error, Reason} ->
 			%TODO: log
 			?DEBUG("error: ~p", [Reason]),
-			{error, Reason}
+			{error, Reason};
+
+		Any             ->
+			?DEBUG("transaction:receipt= unknown response ~p~n", [Any]),
+			{error, unknown_response}
 	end.
 
