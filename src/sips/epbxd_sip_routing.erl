@@ -53,6 +53,13 @@ send(udp, Message, Transport, CSock={_,Host,_}) ->
 
 	{ok, Sock} = gen_udp:open(0, [binary,{reuseaddr,true},{active,false}]),
 	Ret = gen_udp:send(Sock, Host, Port, epbxd_sip_message:encode(Message)),
+	case Ret of
+		{error, Reason} -> 
+			io:format(user, "epbxd_sip_routing:send():: fail to send message: ~p (~p:~p ~p)~n", [Reason, Host, Port,
+					epbxd_sip_message:encode(Message)]);
+		_ -> pass
+	end,
+
 	gen_udp:close(Sock),
 
 	Ret.
