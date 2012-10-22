@@ -132,9 +132,19 @@ trying({provisional, Response, Transport, Socket}, _From, StateData) ->
 
 % @sync
 % 2xx to 6xx responses
-trying({_, Response, Transport, Socket}, _From, State) ->
+trying({_, Response, Transport, Socket}, _From, StateData=#state{transaction=Transaction}) ->
 	% TODO: send response
-	{reply, ok, completed, State}.
+	Reply = case
+		epbxd_sip_routing:send(Response, Transport, Socket)
+	of
+		ok              -> ok;
+		{error, Reason} -> {error, Reason}
+	end,
+
+	io:format(user, "timerJ= ~p~n", [Transaction#sip_transaction.timerJ]),
+	TRefJ = gen_fsm:send_event_after(Transaction#sip_transaction.timerJ, timeoutJ),
+
+	{reply, Reply, completed, StateData#state{tRefJ=TRefJ,response={Response,Transport,Socket}}}.
 
 % @sync
 proceeding({Request=#sip_message{type=request}, Transport, Socket}, _From, StateData=#state{response={Response,_,_}}) ->
