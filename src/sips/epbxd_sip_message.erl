@@ -165,18 +165,20 @@ decode(header, Message=#sip_message{headers=Headers}, [], Rest) ->
 %%		erlang:iolist_to_binary(epbxd_sip_message:encode(#sip_message{type=response,...})).
 %%
 -spec encode(#sip_message{}) -> iolist().
-encode(#sip_message{version=V,type=request,method=M,uri=U,headers=H}) ->
+encode(#sip_message{version=V,type=request,method=M,uri=U,headers=H,payload=P}) ->
 	Headers = encode(header, H, []),
 	[
 		utils:str(M), $\s, epbxd_sip_uri:encode(U), $\s, <<"SIP/">>, V, <<"\r\n">>,
-		Headers
+		Headers,
+		encode(payload, P)
 	];
-encode(#sip_message{version=V,type=response,status=S,reason=R,headers=H}) ->
+encode(#sip_message{version=V,type=response,status=S,reason=R,headers=H,payload=P}) ->
 	Headers = encode(header, H, []),
 
 	[
 		<<"SIP/">>, V, $\s, utils:str(S), $\s, R, <<"\r\n">>,
-		Headers
+		Headers,
+		encode(payload, P)
 	].
 
 encode(header, [], Acc)    ->
@@ -185,8 +187,12 @@ encode(header, [{Header, Value}|Tail], Acc) ->
 	encode(header, Tail, 
 		[Acc, epbxd_sip_header:encode(Header, Value), <<"\r\n">>]
 	).
-	
 
+% undefined (and atoms generally) is not a valid nested list element
+encode(payload, undefined) ->
+	<<"">>;
+encode(payload, Payload)   ->
+	Payload.
 
 %% 
 %% REQUESTS
