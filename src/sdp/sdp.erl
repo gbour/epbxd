@@ -17,7 +17,7 @@
 -module(sdp).
 -author("Guillaume Bour <guillaume@bour.cc>").
 
--export([rtpmap/1,decode/1,encode/1]).
+-export([rtpmap/1,decode/1,encode/1,negociate/1]).
 %-ifdef(debug).
 %	-export([decode_/3, binary_to_addrtype/1, binary_to_media/1, binary_to_proto/1]).
 %-endif.
@@ -52,7 +52,13 @@ payload_to_encoding(<<"3">>)  -> 'GSM';
 payload_to_encoding(<<"2">>)  -> 'G721';
 payload_to_encoding(<<"9">>)  -> 'G722';
 payload_to_encoding(<<"15">>) -> 'G728';
-payload_to_encoding(_)        -> undefined.
+payload_to_encoding(P)        -> 
+	Payload = utils:int(P),
+	
+	if 
+		Payload >= 96 andalso Payload =< 127 -> dynamic;
+		true                                 -> undefined
+	end.
 
 -spec binary_to_addrtype(binary()) -> atom().
 binary_to_addrtype(<<"IP4">>) -> 'IP4';
@@ -267,4 +273,21 @@ encode(rtcp, Rtcp=#sdp_connection{}) ->
 	<<"a=rtcp:", (encode(Rtcp))/binary, "\r\n">>;
 encode(port, Port)                   ->
 	<<(?I2B(Port))/binary, $\s>>.
+
+
+
+%%
+%%
+%%
+negociate(Offer=#sdp_session{medias=[Media]}) ->
+	Allowed = config:get(codecs),
+	io:format(user,"allowed= ~p~n", [Allowed]),
+
+	RTPMap = Media#sdp_media.rtpmap,
+
+	Ok = lists:filter(fun({Id, [A,B]}) -> true end, RTPMap),
+	io:format(user, "ok= ~p~n", [Ok]),
+
+	Ok.
+
 

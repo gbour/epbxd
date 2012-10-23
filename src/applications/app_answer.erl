@@ -31,7 +31,7 @@ exec(Opts, Chan=#call_channel{state=State,source=Caller}) ->
 	% if channel is not in 'pending', we cannot answer!
 	case State of
 		pending ->
-			epbxd_channel:accept(Caller, Opts);
+			{ok, RtpContext} = epbxd_channel:accept(Caller, Opts);
 
 		_       ->
 			?DEBUG("Cannot answer: channel is not in *pending* state", []),

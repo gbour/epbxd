@@ -20,7 +20,7 @@
 -type sdp_rtpmap()   :: {sdp_encoding(), {integer(), integer()}}.
 
 -record(sdp_origin, {
-	username     = <<>>         :: binary(),
+	username     = <<"epbxd">>  :: binary(),
 	ssid         = 0            :: integer(),
 	ssversion    = 0            :: integer(),
 	nettype      = 'IN'         :: 'IN',
@@ -42,7 +42,7 @@
 -record(sdp_media,  {
 	type   = audio     :: audio | video | text | application | message,
 	proto  = 'RTP/AVP' :: udp | 'RTP/AVP' | 'RTP/SAVP',
-  port   = 0         :: integer(),
+	port   = 0         :: integer(),
 	rtpmap = []        :: list(sdp_rtpmap()),
 	rtcp   = undefined :: undefined | sdp_origin(),
 	ptime  = 20        :: integer(),

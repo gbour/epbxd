@@ -60,7 +60,14 @@ start(normal, _Args) ->
 	% TODO: we need to init mnesia & ETS tables somewhere
 	%
 	% return {ok, Pid} (of top supervisor)
-	epbxd_sup:start_link();
+	TopSupervisor = epbxd_sup:start_link(),
+
+	% start RTP allocator
+	%epbxd_rtp:start_link({10000, 20000}),
+	%epbxd_rtp_sup:start_link(),
+	epbxd_rtp_sup:start_child(),
+
+	TopSupervisor;
 	
 
 start(Type,_) ->

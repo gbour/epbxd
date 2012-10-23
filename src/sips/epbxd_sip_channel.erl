@@ -25,6 +25,9 @@
 %-export([on_called/2, on_ringing/2, on_answered/2, on_hanguped/2]).
 
 -include("epbxd_channel.hrl").
+-include("epbxd_sip.hrl").
+-include("sdp/sdp.hrl").
+-include("rtp/rtp.hrl").
 
 %% @doc 
 %%
@@ -58,9 +61,26 @@ dial(_From, To, Opts) ->
 ring(To, _Opts) ->
 	response(ringing, To).
 
-accept(To, _Opts) ->
+accept(To=#sip_stub{ref=Request}, _Opts) ->
 	%WARNING: after that, invite transaction is deleted
-	response(ok, To).
+	%
+	Payload = Request#sip_message.payload,
+	SdpOffer = sdp:decode(Payload),
+	io:format(user, "sdp= ~p~n", [SdpOffer]),
+	
+	{Type, Codecs} = case sdp:negociate(SdpOffer) of
+		[]      -> {'unsupported-media', undef};
+		Codecs2 -> {'ok'               , Codecs2}
+	end,
+
+	case response(Type, To, Codecs) of
+		{ok, Port} ->
+			#rtp_context{
+				codecs=Codecs,
+				port=Port
+			};
+		_ -> pass
+	end.
 
 hangup(_To=#sip_stub{dialog=Dialog}, _Opts) ->
 	[Reg] = mnesia:dirty_read(registrations, Dialog#sip_dialog.peer#sip_uri.user),
@@ -72,6 +92,47 @@ hangup(_To=#sip_stub{dialog=Dialog}, _Opts) ->
 
 
 
+response(Type, #sip_stub{socket=S,transport=T,ref=R,transaction={Mod,Fsm}}, Codecs) ->
+	% 1. create RTP socket
+	{ok, Port, Socket} = epbxd_rtp:alloc(),
+	io:format(user, "RTP port= ~p, ~p~n", [Port, inet:sockname(Socket)]),
+		
+	Session = #sdp_session{
+		origin     = #sdp_origin{
+			ssid      = random:uniform(99999),
+			% TODO: must be increased when session data is modified
+			ssversion = random:uniform(9999),
+			% TODO: either from configuration, or query the system (on utilise sockname(Socket))
+			address   = <<"127.0.0.1">>
+		},
+		connection = #sdp_connection{
+			% TODO: either from configuration, or query the system
+			address   = <<"127.0.0.1">>
+		},
+		medias     = [#sdp_media{
+			port      = Port,
+			rtpmap    = Codecs
+		}]
+	},
+	io:format(user, "~p~n", [Session]),
+
+	Response = epbxd_sip_message:response(Type, R),
+	Payload  = sdp:encode(Session),
+
+	% adding content-type, content-length headers
+	Response2 = Response#sip_message{
+		headers=lists:append(Response#sip_message.headers, [
+				{"Content-Type"  , "application/sdp"},
+				{"Content-Length", erlang:size(Payload)}
+			]),
+		payload=Payload
+	},
+
+	Mod:send(Fsm, Response2, T, S),
+
+	% returns RTP socket
+	{ok, Socket}
+	
 response(Type, #sip_stub{socket=S,transport=T,ref=R,transaction={Mod,Fsm}}) ->
 	io:format(user, "do response ~p: ~p~n", [Type, R]),
 	%epbxd_sip_routing:send(epbxd_sip_message:response(Type, R), T, S).

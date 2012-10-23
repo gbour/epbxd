@@ -270,7 +270,9 @@ status('forbidden') ->
 status('not-found') ->
 	{404, "Not found"};
 status('dont-exists') ->
-	{481, "Call/Transaction Does Not Exist"}.
+	{481, "Call/Transaction Does Not Exist"};
+status('unsupported-media') ->
+	{415, "Unsupported Media Type"}.
 
 
 %% @doc Build a SIP response messages
