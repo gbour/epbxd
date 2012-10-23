@@ -389,6 +389,9 @@ header(_) ->
 %
 %
 %
+response_type(#sip_message{type=response,status=Status}) ->
+	response_type(Status);
+
 response_type(Code) when Code >= 100 andalso Code < 200 ->
 	provisional;
 response_type(200) ->
