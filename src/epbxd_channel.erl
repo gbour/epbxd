@@ -24,6 +24,7 @@
 -export([dial/3, ring/2, accept/2, hangup/2]).
 %-export([on_called/2, on_ringing/2, on_answered/2, on_hanguped/2]).
 
+-include("utils.hrl").
 -include("epbxd_channel.hrl").
 
 %% @doc 
