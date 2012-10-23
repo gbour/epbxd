@@ -20,6 +20,7 @@ load(Filename) ->
 
 		%%{error, Reason}
 		Err -> 
+			io:format(user,"Fail to load config file: ~p", [Err]),
 			Err
 	end.
 
